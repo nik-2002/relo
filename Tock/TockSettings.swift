@@ -8,6 +8,7 @@ enum TockSettingsKeys {
   static let openHotkey = "hotkeyOpen"
   static let pauseResumeHotkey = "hotkeyPauseResume"
   static let clearHotkey = "hotkeyClear"
+  static let unifiedHotkeyStorage = "unifiedHotkeyStorageV1"
   static let didPromptLoginItem = "didPromptLoginItem"
   static let showNotifications = "showNotifications"
   static let menuBarIconSize = "menuBarIconSize"

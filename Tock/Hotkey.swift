@@ -62,63 +62,88 @@ struct Hotkey: Codable, Equatable {
   #endif
 
   static func load(for action: HotkeyAction, defaults: UserDefaults = .standard) -> Hotkey? {
+    #if canImport(KeyboardShortcuts)
+    return Hotkey(keyboardShortcut: KeyboardShortcuts.getShortcut(for: action.recorderName))
+    #else
     guard let data = defaults.data(forKey: action.userDefaultsKey) else { return nil }
     return (try? JSONDecoder().decode(Hotkey?.self, from: data)) ?? nil
+    #endif
   }
 
   static func save(_ hotkey: Hotkey?, for action: HotkeyAction, defaults: UserDefaults = .standard) {
+    #if canImport(KeyboardShortcuts)
+    if load(for: action, defaults: defaults) != hotkey {
+      updateRecorderUI(hotkey, name: action.recorderName)
+    } else {
+      KeyboardShortcuts.disable(action.recorderName)
+    }
+    #else
     guard let data = try? JSONEncoder().encode(hotkey) else {
       defaults.removeObject(forKey: action.userDefaultsKey)
       NotificationCenter.default.post(name: Self.didChangeNotification, object: nil)
       return
     }
     defaults.set(data, forKey: action.userDefaultsKey)
+    #endif
     NotificationCenter.default.post(name: Self.didChangeNotification, object: nil)
-  }
-
-  static func seedDefaultsIfNeeded(defaults: UserDefaults = .standard) {
-    for action in HotkeyAction.allCases where defaults.object(forKey: action.userDefaultsKey) == nil {
-      save(action.defaultHotkey, for: action, defaults: defaults)
-    }
   }
 
   #if canImport(KeyboardShortcuts)
   static func updateRecorderUI(_ hotkey: Hotkey?, name: KeyboardShortcuts.Name) {
     KeyboardShortcuts.setShortcut(hotkey?.keyboardShortcut, for: name)
-    // Recorder UI only; Carbon + Hotkey(UserDefaults) are authoritative.
+    // The package owns persistence and recorder display; AppDelegate owns execution.
     KeyboardShortcuts.disable(name)
   }
 
-  static func migrateRecorderDefaultsIfNeeded(defaults: UserDefaults = .standard) {
-    migrateRecorderShortcut(
-      action: .open,
-      legacyName: .legacyOpenRecorder,
-      newName: .openRecorder,
-      defaults: defaults
-    )
-    migrateRecorderShortcut(
-      action: .clear,
-      legacyName: .legacyClearRecorder,
-      newName: .clearRecorder,
-      defaults: defaults
-    )
-  }
-
-  private static func migrateRecorderShortcut(
-    action: HotkeyAction,
-    legacyName: KeyboardShortcuts.Name,
-    newName: KeyboardShortcuts.Name,
-    defaults: UserDefaults
-  ) {
-    if load(for: action, defaults: defaults) == nil,
-       let legacyShortcut = KeyboardShortcuts.getShortcut(for: legacyName),
-       let hotkey = Hotkey(keyboardShortcut: legacyShortcut) {
-      save(hotkey, for: action, defaults: defaults)
-      updateRecorderUI(hotkey, name: newName)
+  static func prepareStorageIfNeeded(defaults: UserDefaults = .standard) {
+    guard !defaults.bool(forKey: TockSettingsKeys.unifiedHotkeyStorage) else {
+      for action in HotkeyAction.allCases {
+        KeyboardShortcuts.disable(action.recorderName)
+      }
+      return
     }
 
-    if KeyboardShortcuts.getShortcut(for: legacyName) != nil {
-      updateRecorderUI(nil, name: legacyName)
+    for action in HotkeyAction.allCases {
+      let recorderHotkey = Hotkey(
+        keyboardShortcut: KeyboardShortcuts.getShortcut(for: action.recorderName)
+      )
+
+      if recorderHotkey == nil {
+        let legacyData = defaults.data(forKey: action.userDefaultsKey)
+        let legacyHotkey = legacyData.flatMap {
+          try? JSONDecoder().decode(Hotkey.self, from: $0)
+        }
+        let legacyRecorderHotkey = action.legacyRecorderName.flatMap {
+          Hotkey(keyboardShortcut: KeyboardShortcuts.getShortcut(for: $0))
+        }
+
+        if let legacyHotkey {
+          updateRecorderUI(legacyHotkey, name: action.recorderName)
+        } else if legacyData != nil {
+          // A JSON null represented a shortcut the user explicitly disabled.
+          updateRecorderUI(nil, name: action.recorderName)
+        } else if let legacyRecorderHotkey {
+          updateRecorderUI(legacyRecorderHotkey, name: action.recorderName)
+        } else {
+          updateRecorderUI(action.defaultHotkey, name: action.recorderName)
+        }
+      } else {
+        KeyboardShortcuts.disable(action.recorderName)
+      }
+
+      defaults.removeObject(forKey: action.userDefaultsKey)
+      if let legacyRecorderName = action.legacyRecorderName {
+        updateRecorderUI(nil, name: legacyRecorderName)
+      }
+    }
+
+    defaults.set(true, forKey: TockSettingsKeys.unifiedHotkeyStorage)
+    NotificationCenter.default.post(name: Self.didChangeNotification, object: nil)
+  }
+  #else
+  static func prepareStorageIfNeeded(defaults: UserDefaults = .standard) {
+    for action in HotkeyAction.allCases where defaults.object(forKey: action.userDefaultsKey) == nil {
+      save(action.defaultHotkey, for: action, defaults: defaults)
     }
   }
   #endif

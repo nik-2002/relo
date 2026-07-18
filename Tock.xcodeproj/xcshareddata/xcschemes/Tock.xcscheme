@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "DDDDDDDD0000000000000004"
-               BuildableName = "Tock.app"
+               BuildableName = "Relo.app"
                BlueprintName = "Tock"
                ReferencedContainer = "container:Tock.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DDDDDDDD0000000000000004"
-            BuildableName = "Tock.app"
+            BuildableName = "Relo.app"
             BlueprintName = "Tock"
             ReferencedContainer = "container:Tock.xcodeproj">
          </BuildableReference>
@@ -69,7 +69,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DDDDDDDD0000000000000004"
-            BuildableName = "Tock.app"
+            BuildableName = "Relo.app"
             BlueprintName = "Tock"
             ReferencedContainer = "container:Tock.xcodeproj">
          </BuildableReference>

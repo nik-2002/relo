@@ -53,13 +53,13 @@ struct TockSettingsView: View {
         HStack(spacing: 12) {
           AppIconView()
             .frame(width: 48, height: 48)
-          Text("Tock Settings")
+          Text("Relo Settings")
             .font(.system(size: 22, weight: .semibold))
         }
         .frame(maxWidth: .infinity, alignment: .center)
 
         VStack(spacing: 6) {
-          Toggle("Launch Tock at Login", isOn: $launchAtLogin)
+          Toggle("Launch Relo at Login", isOn: $launchAtLogin)
             .toggleStyle(.checkbox)
             .onChange(of: launchAtLogin) { _, newValue in
               guard !isUpdatingLaunchAtLogin else { return }
@@ -199,7 +199,7 @@ struct TockSettingsView: View {
               .foregroundStyle(.secondary)
             #endif
           } label: {
-            Text("Open Tock")
+            Text("Show/Hide Relo")
               .alignmentGuide(.firstTextBaseline) { dimensions in
                 dimensions[VerticalAlignment.center]
               }
@@ -271,10 +271,7 @@ struct TockSettingsView: View {
           DispatchQueue.main.async {
             focusedField = .tone
           }
-          #if canImport(KeyboardShortcuts)
-          Hotkey.migrateRecorderDefaultsIfNeeded()
-          #endif
-          Hotkey.seedDefaultsIfNeeded()
+          Hotkey.prepareStorageIfNeeded()
           loadHotkeysFromDefaults()
           preloadPreviewTones()
           if NotificationTone(rawValue: selectedTone) == nil {
@@ -385,17 +382,8 @@ struct TockSettingsView: View {
   private func handleRecorderChange(action: HotkeyAction, shortcut: KeyboardShortcuts.Shortcut?) {
     guard !isUpdatingRecorder else { return }
     let proposed = Hotkey(keyboardShortcut: shortcut)
-    let recorderName: KeyboardShortcuts.Name
-    switch action {
-    case .open:
-      recorderName = .openRecorder
-    case .pauseResume:
-      recorderName = .pauseResumeRecorder
-    case .clear:
-      recorderName = .clearRecorder
-    }
-    Hotkey.updateRecorderUI(proposed, name: recorderName)
     if let proposed, !Hotkey.isValid(modifierFlags: proposed.modifierFlags) {
+      hotkeyErrorMessage = "Shortcuts must include Command, Option, or Control."
       syncRecorderFromDefaults()
       return
     }
@@ -413,13 +401,15 @@ struct TockSettingsView: View {
     }
 
     hasHotkeyConflict = hotkeysHaveConflict([nextOpen, nextPauseResume, nextClear])
-    guard !hasHotkeyConflict else { return }
+    guard !hasHotkeyConflict else {
+      hotkeyErrorMessage = nil
+      syncRecorderFromDefaults()
+      return
+    }
     openHotkey = nextOpen
     pauseResumeHotkey = nextPauseResume
     clearHotkey = nextClear
-    Hotkey.save(openHotkey, for: .open)
-    Hotkey.save(pauseResumeHotkey, for: .pauseResume)
-    Hotkey.save(clearHotkey, for: .clear)
+    Hotkey.save(proposed, for: action)
     hotkeyErrorMessage = nil
   }
   #endif
@@ -513,7 +503,7 @@ struct TockSettingsView: View {
     let actionName: String
     switch action {
     case .open:
-      actionName = "Open Tock"
+      actionName = "Show/Hide Relo"
     case .pauseResume:
       actionName = "Pause/Resume"
     case .clear:

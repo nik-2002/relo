@@ -56,7 +56,7 @@ final class TockModel: ObservableObject {
   }
 
   var timeOfDayEndTooltip: String? {
-    guard isRunning, mode == .countdown, isTimeOfDayCountdown, !isFinished else { return nil }
+    guard isRunning, mode == .countdown, isTimeOfDayCountdown, !isPaused, !isFinished else { return nil }
     guard let targetDate else { return nil }
     let formatter = DateFormatter()
     formatter.locale = Locale.current
@@ -135,7 +135,11 @@ final class TockModel: ObservableObject {
   }
 
   func pause() {
-    guard isRunning, !isPaused, !isTimeOfDayCountdown else { return }
+    guard isRunning, !isPaused else { return }
+    if mode == .countdown, let targetDate {
+      remaining = max(0, targetDate.timeIntervalSinceNow)
+      self.targetDate = nil
+    }
     isPaused = true
     timer?.invalidate()
     timer = nil
@@ -150,6 +154,9 @@ final class TockModel: ObservableObject {
       guard remaining > 0 else { return }
       isPaused = false
       targetDate = Date().addingTimeInterval(remaining)
+      if isTimeOfDayCountdown, let targetDate {
+        notificationContext = .timeOfDay(formattedTimeString(for: targetDate))
+      }
       lastDisplayedSecond = nil
       scheduleTimer()
     case .stopwatch:

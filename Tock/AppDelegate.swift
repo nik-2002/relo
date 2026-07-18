@@ -18,7 +18,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
   private var currentOpenHotkey: Hotkey?
   private var currentPauseResumeHotkey: Hotkey?
   private var currentClearHotkey: Hotkey?
-  private var hotkeyDefaultsObserver: NSObjectProtocol?
   private var hotkeyChangeObserver: NSObjectProtocol?
   private var contextMenu: NSMenu?
   private var openItem: NSMenuItem?
@@ -95,7 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     }
 
     let alert = NSAlert()
-    alert.messageText = "Launch Tock at Login?"
+    alert.messageText = "Launch Relo at Login?"
     alert.informativeText = "This can be changed later in Settings."
     alert.addButton(withTitle: "Add")
     alert.addButton(withTitle: "Not now")
@@ -178,22 +177,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     if popover.isShown {
       popover.performClose(sender)
     } else {
-      NotificationCenter.default.post(name: Self.popoverWillShowNotification, object: nil)
-      popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
-      startEventMonitors()
+      showPopover(relativeTo: sender)
     }
   }
 
   private func showPopoverFromNotification() {
     guard !popover.isShown, let button = statusItem.button else { return }
-    NotificationCenter.default.post(name: Self.popoverWillShowNotification, object: nil)
+    showPopover(relativeTo: button)
+  }
+
+  private func showPopover(relativeTo button: NSStatusBarButton) {
+    NSApp.activate(ignoringOtherApps: true)
     popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    focusPopoverInput()
     startEventMonitors()
+  }
+
+  private func focusPopoverInput() {
+    popover.contentViewController?.view.window?.makeKey()
+    DispatchQueue.main.async { [weak self] in
+      guard let self, self.popover.isShown else { return }
+      self.popover.contentViewController?.view.window?.makeKey()
+      NotificationCenter.default.post(name: Self.popoverWillShowNotification, object: nil)
+      DispatchQueue.main.async { [weak self] in
+        guard let self,
+              self.popover.isShown,
+              let window = self.popover.contentViewController?.view.window,
+              let textField = self.firstTextField(in: self.popover.contentViewController?.view) else {
+          return
+        }
+        window.makeKey()
+        window.makeFirstResponder(textField)
+      }
+    }
+  }
+
+  private func firstTextField(in view: NSView?) -> NSTextField? {
+    guard let view else { return nil }
+    if let textField = view as? NSTextField {
+      return textField
+    }
+    for subview in view.subviews {
+      if let textField = firstTextField(in: subview) {
+        return textField
+      }
+    }
+    return nil
   }
 
   private func togglePopoverFromHotKey() {
     guard let button = statusItem.button else { return }
-    togglePopover(button)
+    if popover.isShown {
+      popover.performClose(nil)
+    } else {
+      showPopover(relativeTo: button)
+    }
   }
 
   private func trashFromHotKey() {
@@ -202,7 +240,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
   }
 
   private func togglePauseResumeFromHotKey() {
-    guard model.isRunning else { return }
+    if model.canRepeat {
+      _ = model.repeatLastInput()
+      return
+    }
+    guard model.isRunning else {
+      NSSound.beep()
+      return
+    }
     if model.isPaused {
       model.resume()
     } else {
@@ -261,7 +306,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     menu.addItem(settingsItem)
 
     let aboutItem = NSMenuItem(
-      title: "About Tock",
+      title: "About Relo",
       action: #selector(openAboutFromMenu),
       keyEquivalent: ""
     )
@@ -269,7 +314,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     menu.addItem(aboutItem)
 
     menu.addItem(.separator())
-    let quitItem = NSMenuItem(title: "Quit Tock", action: #selector(quitApp), keyEquivalent: "q")
+    let quitItem = NSMenuItem(title: "Quit Relo", action: #selector(quitApp), keyEquivalent: "q")
     quitItem.target = self
     menu.addItem(quitItem)
 
@@ -283,22 +328,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
   private func updateContextMenuItems() {
     guard let menu = contextMenu else { return }
     stopwatchItem?.isEnabled = !model.isRunning || model.isFinished
-    let pauseAllowed = !model.isTimeOfDayCountdown
-    pauseItem?.isEnabled = model.isRunning && !model.isFinished && (model.isPaused || pauseAllowed)
+    pauseItem?.isEnabled = model.isRunning && !model.isFinished
     clearItem?.isEnabled = model.isRunning
     applyHotkeyHint(for: .open, to: openItem)
-    applyHotkeyHint(for: .pauseResume, to: pauseItem)
     applyHotkeyHint(for: .clear, to: clearItem)
 
     if model.isPaused && !model.isFinished {
-      pauseItem?.title = "Restart"
-      pauseItem?.action = #selector(restartTimerFromMenu)
+      pauseItem?.title = "Resume"
+      pauseItem?.action = #selector(resumeTimerFromMenu)
     } else {
       pauseItem?.title = "Pause"
       pauseItem?.action = #selector(pauseTimerFromMenu)
     }
 
     if model.canRepeat {
+      clearHotkeyHint(on: pauseItem)
       if repeatItem == nil {
         let item = NSMenuItem(title: "Repeat", action: #selector(repeatTimerFromMenu), keyEquivalent: "r")
         item.target = self
@@ -309,9 +353,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         }
         repeatItem = item
       }
+      applyHotkeyHint(for: .pauseResume, to: repeatItem)
     } else if let repeatItem {
       menu.removeItem(repeatItem)
       self.repeatItem = nil
+      applyHotkeyHint(for: .pauseResume, to: pauseItem)
+    } else {
+      applyHotkeyHint(for: .pauseResume, to: pauseItem)
     }
   }
 
@@ -354,7 +402,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     model.pause()
   }
 
-  @objc private func restartTimerFromMenu() {
+  @objc private func resumeTimerFromMenu() {
     model.resume()
   }
 
@@ -415,12 +463,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
   }
 
   private func configureHotkeys() {
-    #if canImport(KeyboardShortcuts)
-    Hotkey.migrateRecorderDefaultsIfNeeded()
-    #endif
-    Hotkey.seedDefaultsIfNeeded()
+    Hotkey.prepareStorageIfNeeded()
     reloadHotkeysFromDefaults()
-    observeHotkeyDefaults()
     observeHotkeyChanges()
   }
 
@@ -440,20 +484,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
       options: []
     )
     UNUserNotificationCenter.current().setNotificationCategories([category])
-  }
-
-  private func observeHotkeyDefaults() {
-    guard hotkeyDefaultsObserver == nil else { return }
-    hotkeyDefaultsObserver = NotificationCenter.default.addObserver(
-      forName: UserDefaults.didChangeNotification,
-      object: UserDefaults.standard,
-      queue: .main
-    ) { [weak self] _ in
-      Task { @MainActor in
-        self?.reloadHotkeysFromDefaults()
-        self?.updateStatusItem()
-      }
-    }
   }
 
   private func observeHotkeyChanges() {
@@ -502,6 +532,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
       setHotkey(newHotkey, for: action)
     } else if let currentHotkey, registerHotkey(currentHotkey, for: action) {
       setHotkey(currentHotkey, for: action)
+      Hotkey.save(currentHotkey, for: action)
+    } else {
+      setHotkey(nil, for: action)
+      Hotkey.save(nil, for: action)
     }
   }
 
@@ -528,7 +562,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
   }
 
   private func registerHotkey(_ hotkey: Hotkey, for action: HotkeyAction) -> Bool {
-    let signature = OSType(bitPattern: 0x544F434B)
+    let signature = OSType(bitPattern: 0x52454C4F)
     let hotKeyID = EventHotKeyID(signature: signature, id: action.id)
     var registeredHotKey: EventHotKeyRef?
     let modifiers = Hotkey.carbonFlags(from: hotkey.modifierFlags)
@@ -627,6 +661,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         self.popover.performClose(nil)
         return nil
       }
+      if self.popover.isShown && event.charactersIgnoringModifiers == " " {
+        if let window = self.popover.contentViewController?.view.window,
+           let textField = self.firstTextField(in: self.popover.contentViewController?.view) {
+          window.makeFirstResponder(textField)
+        }
+        self.model.inputDuration.append(" ")
+        return nil
+      }
+      if self.popover.isShown && (event.keyCode == 36 || event.keyCode == 76) {
+        if self.model.startFromInputs() {
+          self.popover.performClose(nil)
+        }
+        return nil
+      }
       return event
     }
   }
@@ -673,6 +721,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     }
     item.keyEquivalent = keyEquivalent
     item.keyEquivalentModifierMask = hotkey.modifierFlags
+  }
+
+  private func clearHotkeyHint(on item: NSMenuItem?) {
+    item?.keyEquivalent = ""
+    item?.keyEquivalentModifierMask = []
   }
 
   nonisolated func userNotificationCenter(
