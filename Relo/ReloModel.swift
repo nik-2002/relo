@@ -3,6 +3,7 @@ import AppKit
 import AVFoundation
 import UserNotifications
 
+@MainActor
 final class ReloModel: ObservableObject {
   enum TimerMode {
     case countdown
@@ -59,16 +60,7 @@ final class ReloModel: ObservableObject {
   var timeOfDayEndTooltip: String? {
     guard isRunning, mode == .countdown, isTimeOfDayCountdown, !isPaused, !isFinished else { return nil }
     guard let targetDate else { return nil }
-    let formatter = DateFormatter()
-    formatter.locale = Locale.current
-    formatter.timeStyle = .short
-    formatter.dateStyle = .none
-    let timeString = formatter.string(from: targetDate)
-      .replacingOccurrences(of: "AM", with: "a.m.")
-      .replacingOccurrences(of: "PM", with: "p.m.")
-      .replacingOccurrences(of: "am", with: "a.m.")
-      .replacingOccurrences(of: "pm", with: "p.m.")
-    return "Ends at \(timeString)"
+    return "Ends at \(formattedTimeString(for: targetDate))"
   }
 
   @discardableResult
@@ -221,7 +213,9 @@ final class ReloModel: ObservableObject {
   private func scheduleTimer() {
     timer?.invalidate()
     let newTimer = Timer(timeInterval: timerInterval, repeats: true) { [weak self] _ in
-      self?.tick()
+      MainActor.assumeIsolated {
+        self?.tick()
+      }
     }
     newTimer.tolerance = timerTolerance
     RunLoop.main.add(newTimer, forMode: .common)
@@ -371,14 +365,16 @@ final class ReloModel: ObservableObject {
 
     let interval = max(alarmMinInterval, playbackDuration)
     let repeatTimer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-      guard let self else { return }
-      if let alarmRepeatLimit = self.alarmRepeatLimit,
-         self.alarmRepeatCount >= alarmRepeatLimit {
-        self.stopAlarm()
-        return
+      MainActor.assumeIsolated {
+        guard let self else { return }
+        if let alarmRepeatLimit = self.alarmRepeatLimit,
+           self.alarmRepeatCount >= alarmRepeatLimit {
+          self.stopAlarm()
+          return
+        }
+        self.playAlarmOnce()
+        self.alarmRepeatCount += 1
       }
-      self.playAlarmOnce()
-      self.alarmRepeatCount += 1
     }
     RunLoop.main.add(repeatTimer, forMode: .common)
     alarmRepeatTimer = repeatTimer

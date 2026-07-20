@@ -53,6 +53,10 @@ struct ReloTimerParser {
       compact += "pm"
     }
 
+    // Time-of-day input must carry an am/pm marker. Bare colon times like
+    // "18:00" or "6:15" are intentionally treated as MM:SS / HH:MM:SS
+    // durations by `duration(from:)`, so there is no unambiguous room for a
+    // 24-hour clock syntax here.
     guard compact.contains("am") || compact.contains("pm") else {
       return nil
     }
@@ -68,7 +72,9 @@ struct ReloTimerParser {
       }
     }
 
-    let formats = ["h:mma", "ha", "H:mm", "HH:mm"]
+    // Only 12-hour formats are reachable: the guard above requires an am/pm
+    // marker, which the 24-hour patterns would never match.
+    let formats = ["h:mma", "ha"]
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.timeZone = calendar.timeZone

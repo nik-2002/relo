@@ -97,6 +97,10 @@ final class GlobalHotkeyManager {
   }
 
   private func installEventHandlerIfNeeded() {
+    // The handler passes an unretained pointer to `self` and is never removed.
+    // This is safe only because the manager is owned by AppDelegate for the
+    // whole app lifetime. If this class is ever made recreatable, add a
+    // matching RemoveEventHandler(eventHandlerRef) in a deinit.
     guard eventHandlerRef == nil else { return }
     var eventType = EventTypeSpec(
       eventClass: OSType(kEventClassKeyboard),

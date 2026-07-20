@@ -57,6 +57,7 @@ final class ReloTimerParserTests: XCTestCase {
     XCTAssertNil(parser.timeOfDayInterval(from: "sometime"))
   }
 
+  @MainActor
   func testInvalidModelInputProvidesMinimalGuidance() {
     let model = ReloModel()
     model.inputDuration = "later"
@@ -65,6 +66,7 @@ final class ReloTimerParserTests: XCTestCase {
     XCTAssertEqual(model.inputErrorMessage, "Try 10m, 1h 30m, or 6:15pm.")
   }
 
+  @MainActor
   func testPresetStartsImmediatelyUsingTheNormalTimerPath() {
     let model = ReloModel()
 
