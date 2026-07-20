@@ -2,7 +2,7 @@
 
 Status date: 2026-07-17
 
-This project is currently based on Tock, a macOS menu bar timer app. Apple currently documents macOS 27 as macOS Golden Gate 27 beta, with the macOS 27 SDK bundled in Xcode 27.
+Relo is a macOS menu bar timer app. Apple currently documents macOS 27 as macOS Golden Gate 27 beta, with the macOS 27 SDK bundled in Xcode 27.
 
 ## Apple Documentation Pulled
 

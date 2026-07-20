@@ -5,15 +5,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f3e6d3" />
-  <title>Tock | The super-minimal menu bar timer</title>
-  <meta name="description" content="Tock is a super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch mode, and configurable repeating tones." />
-  <meta property="og:title" content="Tock | The super-minimal menu bar timer" />
-  <meta property="og:description" content="Tock is a super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch mode, and configurable repeating tones." />
+  <title>Relo | The super-minimal menu bar timer</title>
+  <meta name="description" content="Relo is a super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch mode, and configurable repeating tones." />
+  <meta property="og:title" content="Relo | The super-minimal menu bar timer" />
+  <meta property="og:description" content="Relo is a super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch mode, and configurable repeating tones." />
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="https://edelstone.github.io/tock/assets/share.jpg" />
-  <meta property="og:url" content="https://edelstone.github.io/tock/" />
-  <meta property="og:site_name" content="Tock" />
-  <link rel="canonical" href="https://edelstone.github.io/tock/" />
+  <meta property="og:site_name" content="Relo" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
   <link rel="icon" href="assets/favicon.png" sizes="any">
   <link rel="stylesheet" href="assets/css/reset.css" />
@@ -35,20 +32,10 @@
 <body>
   <header class="header">
     <div class="header-text">
-      <h1 class="title">Tock</h1>
+      <h1 class="title">Relo</h1>
       <p class="subtitle">The super-minimal menu bar timer you’ll barely notice.</p>
     </div>
-    <video class="visual" src="assets/video/app.mp4" poster="assets/img/app.png" autoplay loop muted playsinline preload="metadata" alt="Screenshot of the Tock popover" width="800" height="309">
-    </video>
-    <div class="cta">
-      <div class="direct-download-group">
-        <a class="button button-direct" href="https://github.com/edelstone/tock/releases/latest/download/Tock.dmg">Direct download</a>
-        <p class="direct-download-meta" data-version>v—</p>
-      </div>
-      <a class="button-app-store" href="https://apps.apple.com/app/id6757497053">
-        <img class="app-store-badge" src="assets/img/app-store-badge.svg" alt="Download on the App Store" width="120" height="40" />
-      </a>
-    </div>
+    <img class="visual" src="Relo/AppIcon.png" alt="Relo app icon" width="512" height="512" />
   </header>
   <main>
     <section class="features">
@@ -112,56 +99,9 @@
     </section>
   </main>
   <footer class="footer">
-    <a href="https://github.com/edelstone/tock">Source code</a>
-    <a href="https://github.com/edelstone/tock/blob/main/LICENSE">License</a>
+    <a href="LICENSE">License</a>
     <a href="privacy/">Privacy policy</a>
   </footer>
-  <script>
-    (function () {
-      const meta = document.querySelector("[data-version]");
-      const download = document.querySelector(".button-download");
-      if (!meta && !download) {
-        return;
-      }
-
-      fetch("https://api.github.com/repos/edelstone/tock/releases/latest", {
-        headers: { Accept: "application/vnd.github+json" }
-      })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((data) => {
-          if (!data || !data.tag_name) {
-            return;
-          }
-          const version = data.tag_name.replace(/^v/, "");
-          if (meta) {
-            meta.textContent = `v${version}`;
-          }
-          if (download && Array.isArray(data.assets)) {
-            const dmg = data.assets.find((asset) => asset.name === "Tock.dmg");
-            if (dmg && dmg.browser_download_url) {
-              download.href = dmg.browser_download_url;
-            }
-          }
-        })
-        .catch(() => { });
-    })();
-
-    (function () {
-      const appStoreLinks = document.querySelectorAll('a[href*="apps.apple.com/app/id6757497053"]');
-      if (!appStoreLinks.length) {
-        return;
-      }
-
-      const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
-      if (!/mac/i.test(platform)) {
-        return;
-      }
-
-      appStoreLinks.forEach((link) => {
-        link.href = "macappstore://apps.apple.com/app/id6757497053";
-      });
-    })();
-  </script>
 </body>
 
 </html>

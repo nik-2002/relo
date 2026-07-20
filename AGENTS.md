@@ -1,8 +1,8 @@
-# Tock Agent Notes
+# Relo Agent Notes
 
 ## Repo Layout
 
-- macOS app source lives in `Tock/` with the Xcode project at `Tock.xcodeproj`.
+- macOS app source lives in `Relo/` with the Xcode project at `Relo.xcodeproj`.
 - Marketing site assets live under `assets/` and are served by `index.html`.
 - Help page lives at `help/index.html`; 404 page is `404.html`.
 
@@ -13,7 +13,7 @@
 - Vendor reset: `assets/css/reset.css` (linked before `site.css` in `index.html`)
 - Images: place in `assets/img/`
 - Layout note: prefer CSS Grid for layout; avoid Flexbox.
-- URL paths: use relative paths for local dev; `404.html` uses a `<base>` tag + small script to set `/tock/` on GitHub Pages.
+- URL paths: use relative paths for local dev; `404.html` uses a `<base>` tag + small script to set `/relo/` on GitHub Pages.
 
 ## Docs
 

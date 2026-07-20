@@ -28,7 +28,7 @@ jobs:
       - name: Build app (unsigned)
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          xcodebuild -scheme Tock -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO MARKETING_VERSION="${VERSION}"
+          xcodebuild -scheme Relo -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO MARKETING_VERSION="${VERSION}"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

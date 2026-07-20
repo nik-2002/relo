@@ -1,12 +1,12 @@
 ---
 name: Bug report
-about: Report a bug or crash in Tock
+about: Report a bug or crash in Relo
 title: ""
 labels: bug
 assignees: ""
 ---
 
-**Tock version**
+**Relo version**
 (e.g. 0.1.25)
 
 **macOS version**
@@ -23,4 +23,4 @@ assignees: ""
 (If applicable)
 
 **Crash report**
-(Attach `Tock_*.crash` from `~/Library/Logs/DiagnosticReports/` if the app crashed)
+(Attach `Relo_*.crash` from `~/Library/Logs/DiagnosticReports/` if the app crashed)

@@ -1,6 +1,6 @@
 # Releasing
 
-This guide covers the end-to-end workflows for shipping Tock through supported distribution channels.
+This guide covers the end-to-end workflows for shipping Relo through supported distribution channels.
 
 ## Version, build, and tag rules
 
@@ -26,12 +26,12 @@ This guide covers the end-to-end workflows for shipping Tock through supported d
 ## Prerequisites
 
 - Xcode installed.
-- `Tock` scheme is shared in Xcode (Xcode → Manage Schemes → Shared).
+- `Relo` scheme is shared in Xcode (Xcode → Manage Schemes → Shared).
 - GitHub CLI (`gh`) for creating/editing release notes from the terminal.
 
 ## Development
 
-Open `Tock.xcodeproj`, select the `Tock` scheme, and run from Xcode.
+Open `Relo.xcodeproj`, select the `Relo` scheme, and run from Xcode.
 
 ## Release paths
 
@@ -42,7 +42,7 @@ This repo supports two release paths: the Mac App Store flow and the signed + no
 Use this flow for the Mac App Store build (App Store Connect).
 
 1. Bump the app version/build in Xcode.
-   - Target `Tock` → General → Version (MARKETING_VERSION) and Build (CURRENT_PROJECT_VERSION).
+   - Target `Relo` → General → Version (MARKETING_VERSION) and Build (CURRENT_PROJECT_VERSION).
    - Bump Build to a new integer _every upload_ (App Store Connect rejects reused build numbers).
 
 2. Archive and upload from Xcode.
@@ -51,7 +51,7 @@ Use this flow for the Mac App Store build (App Store Connect).
    - Wait for the upload to finish. Xcode will show a confirmation screen when the build has been successfully delivered to App Store Connect.
 
 3. Complete the release in App Store Connect.
-   - App Store Connect → Apps → Tock.
+   - App Store Connect → Apps → Relo.
    - If you haven’t created the version yet, click the “+” button and enter the new version number. Otherwise, just open the existing version record.
    - On the version page, in the Build section, click “Select a build” (or “+”) and choose the uploaded build.
    - Fill any required metadata (What’s New, etc.) and resolve validation errors.
@@ -65,11 +65,11 @@ Use this flow for the Mac App Store build (App Store Connect).
 Use this flow for the official non–App Store release. It produces a signed, notarized, and stapled DMG.
 
 1. Bump the app version/build in Xcode.
-   - Target `Tock` → General → Version (MARKETING_VERSION) and Build (CURRENT_PROJECT_VERSION).
+   - Target `Relo` → General → Version (MARKETING_VERSION) and Build (CURRENT_PROJECT_VERSION).
    - These values control the app’s reported version everywhere (Finder, About screen, crash logs).
 
 2. Archive and notarize the app in Xcode.
-   - Target `Tock` → Signing & Capabilities:
+   - Target `Relo` → Signing & Capabilities:
      - Build configuration: Release (Archive uses Release by default)
      - Automatically manage signing: off
      - Provisioning profile: none
@@ -77,52 +77,52 @@ Use this flow for the official non–App Store release. It produces a signed, no
      - Signing Certificate: Developer ID Application
    - Product → Archive
    - Archive Organizer → Distribute App → Direct Distribution
-   - Wait for notarization to succeed, then export `Tock.app`.
+   - Wait for notarization to succeed, then export `Relo.app`.
 
 3. Verify the exported app passes Gatekeeper.
 
    ```bash
-   spctl -a -vv /path/to/Tock.app
+   spctl -a -vv /path/to/Relo.app
    ```
 
 4. Build a DMG from the notarized app.
 
    ```bash
-   cd /path/to/tock
+   cd /path/to/relo
    rm -rf dist
    mkdir -p dist
    SIGNING_IDENTITY="Developer ID Application: YOUR NAME (TEAMID)" \
-     ./scripts/make-dmg.sh "/path/to/Tock.app" "dist/Tock.dmg"
+     ./scripts/make-dmg.sh "/path/to/Relo.app" "dist/Relo.dmg"
    ```
 
 5. Notarize the DMG with `notarytool`.
    - One-time setup (per machine, just run once):
 
      ```bash
-     xcrun notarytool store-credentials "tock-notary"
+     xcrun notarytool store-credentials "relo-notary"
      ```
 
    - Submit and wait (can take a few minutes):
 
      ```bash
-     xcrun notarytool submit "dist/Tock.dmg" --keychain-profile "tock-notary" --wait
+     xcrun notarytool submit "dist/Relo.dmg" --keychain-profile "relo-notary" --wait
      ```
 
 6. Staple and validate the DMG.
 
    ```bash
-   xcrun stapler staple "dist/Tock.dmg"
-   xcrun stapler validate "dist/Tock.dmg"
+   xcrun stapler staple "dist/Relo.dmg"
+   xcrun stapler validate "dist/Relo.dmg"
    ```
 
 7. Final smoke check.
-   - Mount `dist/Tock.dmg`, drag `Tock.app` to `/Applications`, then:
+   - Mount `dist/Relo.dmg`, drag `Relo.app` to `/Applications`, then:
 
      ```bash
-     spctl -a -vv /Applications/Tock.app
+     spctl -a -vv /Applications/Relo.app
      ```
 
-8. Launch `Tock.app` from `/Applications` and verify core behavior, notifications, settings, and shortcuts.
+8. Launch `Relo.app` from `/Applications` and verify core behavior, notifications, settings, and shortcuts.
 
 #### Publish the release
 
@@ -134,8 +134,8 @@ Use this flow for the official non–App Store release. It produces a signed, no
 4. Upload the signed DMG you produced locally (GitHub Actions does not upload artifacts).
 
    ```bash
-   cd /path/to/tock
-   gh release upload vX.Y.Z dist/Tock.dmg --clobber
+   cd /path/to/relo
+   gh release upload vX.Y.Z dist/Relo.dmg --clobber
    ```
 
    - If you see “release not found”, wait for GitHub Actions to finish and retry commands.

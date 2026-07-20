@@ -1,0 +1,444 @@
+import Foundation
+
+enum ReloSettingsKeys {
+  static let tone = "notificationTone"
+  static let repeatCount = "notificationRepeatCount"
+  static let volume = "notificationVolume"
+  static let playSound = "playSound"
+  static let defaultUnit = "defaultTimeUnit"
+  static let openHotkey = "hotkeyOpen"
+  static let pauseResumeHotkey = "hotkeyPauseResume"
+  static let clearHotkey = "hotkeyClear"
+  static let unifiedHotkeyStorage = "unifiedHotkeyStorageV1"
+  static let didPromptLoginItem = "didPromptLoginItem"
+  static let showNotifications = "showNotifications"
+  static let importedToneFileName = "importedToneFileName"
+  static let importedToneDisplayName = "importedToneDisplayName"
+  static let timerPreset1 = "timerPreset1"
+  static let timerPreset2 = "timerPreset2"
+  static let timerPreset3 = "timerPreset3"
+  static let timerPreset4 = "timerPreset4"
+  static let timerPresetDefaultsVersion = "timerPresetDefaultsVersion"
+}
+
+enum NotificationTone: String, CaseIterable, Identifiable {
+  case alarmFrenzy = "alarm-frenzy"
+  case discreet
+  case joyousChime = "joyous-chime"
+  case wakeUp = "wake-up"
+
+  static let `default` = NotificationTone.wakeUp
+
+  var id: String { rawValue }
+
+  var displayName: String {
+    switch self {
+    case .alarmFrenzy:
+      return "Alarm Frenzy"
+    case .discreet:
+      return "Discreet"
+    case .joyousChime:
+      return "Joyous Chime"
+    case .wakeUp:
+      return "Wake Up"
+    }
+  }
+}
+
+enum NotificationRepeatOption: Int, CaseIterable, Identifiable {
+  case none = 0
+  case five = 5
+  case ten = 10
+  case infinite = -1
+
+  static let `default` = NotificationRepeatOption.ten
+
+  var id: Int { rawValue }
+
+  var displayName: String {
+    switch self {
+    case .none:
+      return "Once"
+    case .five:
+      return "5 Times"
+    case .ten:
+      return "10 Times"
+    case .infinite:
+      return "Until Cleared"
+    }
+  }
+
+  var repeatLimit: Int? {
+    switch self {
+    case .none:
+      return 1
+    case .five:
+      return 5
+    case .ten:
+      return 10
+    case .infinite:
+      return nil
+    }
+  }
+}
+
+enum NotificationVolume: String, CaseIterable, Identifiable {
+  case ultraLow = "ultra-low"
+  case low
+  case medium
+  case high
+
+  static let `default` = NotificationVolume.medium
+
+  var id: String { rawValue }
+
+  var displayName: String {
+    switch self {
+    case .ultraLow:
+      return "Very Low"
+    case .low:
+      return "Low"
+    case .medium:
+      return "Medium"
+    case .high:
+      return "High"
+    }
+  }
+
+  var level: Float {
+    switch self {
+    case .ultraLow:
+      return 0.2
+    case .low:
+      return 0.35
+    case .medium:
+      return 0.7
+    case .high:
+      return 1.0
+    }
+  }
+}
+
+enum DefaultTimeUnit: String, CaseIterable, Identifiable {
+  case seconds
+  case minutes
+  case hours
+
+  static let `default` = DefaultTimeUnit.minutes
+
+  var id: String { rawValue }
+
+  var displayName: String {
+    switch self {
+    case .seconds:
+      return "Seconds"
+    case .minutes:
+      return "Minutes"
+    case .hours:
+      return "Hours"
+    }
+  }
+
+  var multiplier: Double {
+    switch self {
+    case .seconds:
+      return 1
+    case .minutes:
+      return 60
+    case .hours:
+      return 3600
+    }
+  }
+}
+
+struct TimerPreset: Identifiable, Equatable {
+  let slot: Int
+  let input: String
+  let duration: TimeInterval
+
+  var id: Int { slot }
+
+  var displayName: String {
+    let totalSeconds = max(1, Int(duration.rounded()))
+    if totalSeconds % 3_600 == 0 {
+      return "\(totalSeconds / 3_600)h"
+    }
+    if totalSeconds % 60 == 0 {
+      return "\(totalSeconds / 60)m"
+    }
+    if totalSeconds < 60 {
+      return "\(totalSeconds)s"
+    }
+
+    let hours = totalSeconds / 3_600
+    let minutes = (totalSeconds % 3_600) / 60
+    let seconds = totalSeconds % 60
+    if hours > 0 {
+      return seconds == 0 ? "\(hours)h\(minutes)m" : "\(hours)h\(minutes)m\(seconds)s"
+    }
+    return "\(minutes)m\(seconds)s"
+  }
+}
+
+enum TimerPresetConfiguration {
+  static let defaultValues = ["5m", "10m", "25m"]
+  static let minuteRange = 1...1_440
+  private static let previousDefaultValues = [
+    ["1m", "5m", "10m", "30m"],
+    ["1m", "5m", "10m", "25m"],
+  ]
+  private static let currentDefaultsVersion = 3
+  static let keys = [
+    ReloSettingsKeys.timerPreset1,
+    ReloSettingsKeys.timerPreset2,
+    ReloSettingsKeys.timerPreset3,
+  ]
+  private static let legacyKeys = keys + [ReloSettingsKeys.timerPreset4]
+
+  static func storedValues(defaults: UserDefaults = .standard) -> [String] {
+    let values = zip(keys, defaultValues).map { key, fallback in
+      defaults.string(forKey: key) ?? fallback
+    }
+    return resolvedValues(from: values)
+  }
+
+  static func prepareDefaultsIfNeeded(defaults: UserDefaults = .standard) {
+    guard defaults.integer(forKey: ReloSettingsKeys.timerPresetDefaultsVersion)
+      < currentDefaultsVersion else { return }
+
+    let legacyValues = zip(legacyKeys, previousDefaultValues[1]).map { key, fallback in
+      defaults.string(forKey: key) ?? fallback
+    }
+    if previousDefaultValues.contains(legacyValues) {
+      save(defaultValues, defaults: defaults)
+    } else {
+      save(resolvedValues(from: Array(legacyValues.prefix(keys.count))), defaults: defaults)
+    }
+    defaults.removeObject(forKey: ReloSettingsKeys.timerPreset4)
+    defaults.set(
+      currentDefaultsVersion,
+      forKey: ReloSettingsKeys.timerPresetDefaultsVersion
+    )
+  }
+
+  static func resolvedValues(from values: [String]) -> [String] {
+    let minutes = values.compactMap(minutes(from:))
+    guard values.count == keys.count,
+          minutes.count == keys.count,
+          Set(minutes).count == keys.count else {
+      return defaultValues
+    }
+    return minutes.map(value(forMinutes:))
+  }
+
+  static func minutes(from value: String) -> Int? {
+    guard value.hasSuffix("m"),
+          let minutes = Int(value.dropLast()),
+          minuteRange.contains(minutes) else { return nil }
+    return minutes
+  }
+
+  static func value(forMinutes minutes: Int) -> String {
+    "\(clampedMinutes(minutes))m"
+  }
+
+  static func clampedMinutes(_ minutes: Int) -> Int {
+    min(max(minutes, minuteRange.lowerBound), minuteRange.upperBound)
+  }
+
+  static func steppedMinutes(from minutes: Int, direction: Int) -> Int {
+    guard direction != 0 else { return clampedMinutes(minutes) }
+    return clampedMinutes(minutes + (direction > 0 ? 1 : -1))
+  }
+
+  static func presets(
+    from values: [String],
+    defaultUnit: DefaultTimeUnit
+  ) -> [TimerPreset] {
+    let parser = ReloTimerParser(defaultUnit: defaultUnit)
+    return values.prefix(keys.count).enumerated().compactMap { slot, value in
+      let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+      let duration = parser.duration(from: trimmed)
+      guard duration > 0 else { return nil }
+      return TimerPreset(slot: slot, input: trimmed, duration: duration)
+    }
+  }
+
+  static func uniquePresets(
+    from values: [String],
+    defaultUnit: DefaultTimeUnit
+  ) -> [TimerPreset] {
+    var seenDurations = Set<Int>()
+    return presets(from: values, defaultUnit: defaultUnit).filter { preset in
+      seenDurations.insert(Int((preset.duration * 1_000).rounded())).inserted
+    }
+  }
+
+  static func save(
+    _ values: [String],
+    defaults: UserDefaults = .standard
+  ) {
+    let resolvedValues = resolvedValues(from: values)
+    for (key, value) in zip(keys, resolvedValues) {
+      defaults.set(value, forKey: key)
+    }
+  }
+}
+
+final class PresetMinutesFormatter: Formatter {
+  override func string(for obj: Any?) -> String? {
+    if let value = obj as? Int {
+      return "\(value)"
+    }
+    if let value = obj as? NSNumber {
+      return value.stringValue
+    }
+    return nil
+  }
+
+  override func getObjectValue(
+    _ obj: AutoreleasingUnsafeMutablePointer<AnyObject?>?,
+    for string: String,
+    errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
+  ) -> Bool {
+    guard let value = Int(string) else { return false }
+    obj?.pointee = NSNumber(value: value)
+    return true
+  }
+
+  override func isPartialStringValid(
+    _ partialString: String,
+    newEditingString newString: AutoreleasingUnsafeMutablePointer<NSString?>?,
+    errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
+  ) -> Bool {
+    partialString.unicodeScalars.allSatisfy { scalar in
+      (48...57).contains(scalar.value)
+    }
+  }
+}
+
+struct ImportedTone: Equatable {
+  let fileName: String
+  let displayName: String
+  let url: URL
+}
+
+struct ImportedToneStore {
+  static let selectionValue = "imported"
+
+  let directoryURL: URL
+
+  init(directoryURL: URL? = nil) {
+    if let directoryURL {
+      self.directoryURL = directoryURL
+      return
+    }
+    let applicationSupport = FileManager.default.urls(
+      for: .applicationSupportDirectory,
+      in: .userDomainMask
+    ).first ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+    self.directoryURL = applicationSupport
+      .appendingPathComponent("Relo", isDirectory: true)
+      .appendingPathComponent("Tones", isDirectory: true)
+  }
+
+  func current(defaults: UserDefaults = .standard) -> ImportedTone? {
+    guard let storedFileName = defaults.string(forKey: ReloSettingsKeys.importedToneFileName) else {
+      return nil
+    }
+    let fileName = URL(fileURLWithPath: storedFileName).lastPathComponent
+    guard fileName == storedFileName else { return nil }
+    let url = directoryURL.appendingPathComponent(fileName)
+    guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+    let storedDisplayName = defaults.string(forKey: ReloSettingsKeys.importedToneDisplayName)
+    let fallbackName = url.deletingPathExtension().lastPathComponent
+    let displayName = storedDisplayName.flatMap { $0.isEmpty ? nil : $0 } ?? fallbackName
+    return ImportedTone(
+      fileName: fileName,
+      displayName: displayName,
+      url: url
+    )
+  }
+
+  func importTone(from sourceURL: URL, defaults: UserDefaults = .standard) throws -> ImportedTone {
+    try FileManager.default.createDirectory(
+      at: directoryURL,
+      withIntermediateDirectories: true
+    )
+
+    let fileExtension = sourceURL.pathExtension.lowercased()
+    let suffix = fileExtension.isEmpty ? "audio" : fileExtension
+    let fileName = "Imported-\(UUID().uuidString).\(suffix)"
+    let destinationURL = directoryURL.appendingPathComponent(fileName)
+    try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+
+    let previousTone = current(defaults: defaults)
+    let proposedDisplayName = sourceURL.deletingPathExtension().lastPathComponent
+    let displayName = proposedDisplayName.isEmpty ? "Imported Tone" : proposedDisplayName
+    defaults.set(fileName, forKey: ReloSettingsKeys.importedToneFileName)
+    defaults.set(displayName, forKey: ReloSettingsKeys.importedToneDisplayName)
+
+    if let previousTone, previousTone.url != destinationURL {
+      try? FileManager.default.removeItem(at: previousTone.url)
+    }
+
+    return ImportedTone(fileName: fileName, displayName: displayName, url: destinationURL)
+  }
+
+  func remove(defaults: UserDefaults = .standard) throws {
+    if let tone = current(defaults: defaults) {
+      try FileManager.default.removeItem(at: tone.url)
+    }
+    defaults.removeObject(forKey: ReloSettingsKeys.importedToneFileName)
+    defaults.removeObject(forKey: ReloSettingsKeys.importedToneDisplayName)
+  }
+}
+
+enum AlarmTone: Equatable {
+  case bundled(NotificationTone)
+  case imported(ImportedTone)
+
+  var audioURL: URL? {
+    switch self {
+    case .bundled(let tone):
+      return Bundle.main.url(forResource: tone.rawValue, withExtension: "wav")
+    case .imported(let tone):
+      return tone.url
+    }
+  }
+}
+
+struct AlarmConfiguration {
+  let playsSound: Bool
+  let tone: AlarmTone
+  let repeatLimit: Int?
+  let volume: Float
+
+  static func load(
+    defaults: UserDefaults = .standard,
+    importedToneStore: ImportedToneStore = ImportedToneStore()
+  ) -> AlarmConfiguration {
+    let playsSound = defaults.object(forKey: ReloSettingsKeys.playSound) as? Bool ?? true
+    let toneRawValue = defaults.string(forKey: ReloSettingsKeys.tone)
+    let tone: AlarmTone
+    if toneRawValue == ImportedToneStore.selectionValue,
+       let importedTone = importedToneStore.current(defaults: defaults) {
+      tone = .imported(importedTone)
+    } else {
+      tone = .bundled(NotificationTone(rawValue: toneRawValue ?? "") ?? .default)
+    }
+    let storedRepeatCount = defaults.object(forKey: ReloSettingsKeys.repeatCount) as? Int
+    let repeatOption = NotificationRepeatOption(
+      rawValue: storedRepeatCount ?? NotificationRepeatOption.default.rawValue
+    ) ?? .default
+    let volumeRawValue = defaults.string(forKey: ReloSettingsKeys.volume)
+    let volume = NotificationVolume(rawValue: volumeRawValue ?? "") ?? .default
+
+    return AlarmConfiguration(
+      playsSound: playsSound,
+      tone: tone,
+      repeatLimit: repeatOption.repeatLimit,
+      volume: volume.level
+    )
+  }
+}

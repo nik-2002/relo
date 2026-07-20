@@ -5,7 +5,7 @@ APP_PATH="${1:-}"
 OUT_PATH="${2:-}"
 
 if [[ -z "${APP_PATH}" ]]; then
-  echo "Usage: $0 /path/to/Tock.app [output.dmg]" >&2
+  echo "Usage: $0 /path/to/Relo.app [output.dmg]" >&2
   exit 1
 fi
 
@@ -16,12 +16,12 @@ fi
 
 if [[ -z "${OUT_PATH}" ]]; then
   mkdir -p dist
-  OUT_PATH="dist/Tock.dmg"
+  OUT_PATH="dist/Relo.dmg"
 fi
 
 mkdir -p "$(dirname "${OUT_PATH}")"
 
-VOLUME_NAME="Tock"
+VOLUME_NAME="Relo"
 STAGING_DIR="$(mktemp -d)"
 
 cleanup() {

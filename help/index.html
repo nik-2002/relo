@@ -5,15 +5,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f3e6d3" />
-  <title>Documentation | Tock</title>
-  <meta name="description" content="Tock is a super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch mode, and configurable repeating tones." />
-  <meta property="og:title" content="Documentation | Tock" />
-  <meta property="og:description" content="Tock is a super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch mode, and configurable repeating tones." />
+  <title>Documentation | Relo</title>
+  <meta name="description" content="Relo is a super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch mode, and configurable repeating tones." />
+  <meta property="og:title" content="Documentation | Relo" />
+  <meta property="og:description" content="Relo is a super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch mode, and configurable repeating tones." />
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="https://edelstone.github.io/tock/assets/share.jpg" />
-  <meta property="og:url" content="https://edelstone.github.io/tock/docs/" />
-  <meta property="og:site_name" content="Tock" />
-  <link rel="canonical" href="https://edelstone.github.io/tock/docs/" />
+  <meta property="og:site_name" content="Relo" />
   <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png" />
   <link rel="icon" href="../assets/favicon.png" sizes="any" />
   <link rel="stylesheet" href="../assets/css/reset.css" />
@@ -44,8 +41,7 @@
         <li><a href="#overview">Overview</a></li>
         <li><a href="#installation">Installation</a></li>
         <ul>
-          <li><a href="#app-store-download">App Store</a></li>
-          <li><a href="#direct-download">Direct download (DMG)</a></li>
+          <li><a href="#private-build">Private build</a></li>
         </ul>
         <li>
           <a href="#basic-usage">Basic usage</a>
@@ -57,40 +53,36 @@
         <li><a href="#context-menu">Context menu</a></li>
         <li><a href="#settings">Settings</a></li>
         <li><a href="#keyboard-shortcuts">Keyboard shortcuts</a></li>
-        <li><a href="#support-this-project">Support this project</a></li>
         <li><a href="#support">Bugs &amp; crashes</a></li>
         <li><a href="#privacy">Privacy</a></li>
       </ul>
     </nav>
     <section id="overview">
       <h2>Overview</h2>
-      <p>Tock is a super-minimal menu bar timer for macOS. It’s keyboard-driven, supports natural-language input, and intentionally focuses on a single active timer to keep the interface uncluttered. Tock uses macOS system colors and adapts automatically to light or dark mode. Shortcuts, notifications, and appearance are configurable.</p>
-      <p>Tock is free, <a href="https://github.com/edelstone/tock">open source</a>, and does not track or collect data.</p>
+      <p>Relo is a super-minimal menu bar timer for macOS. It’s keyboard-driven, supports natural-language input, and intentionally focuses on a single active timer to keep the interface uncluttered. Relo uses macOS system colors and adapts automatically to light or dark mode. Shortcuts and alerts are configurable.</p>
+      <p>Relo does not track or collect data.</p>
     </section>
     <section id="installation">
       <h2>Installation</h2>
       <p>Requires macOS 14 or later.</p>
-      <h3 id="app-store-download">App Store</h3>
-      <p>Download Tock from the <a href="https://apps.apple.com/app/id6757497053">Mac App Store</a>. Updates are installed automatically by Apple, depending on your App Store settings.</p>
-      <h3 id="direct-download">Direct download (DMG)</h3>
-      <p>This version is downloaded from the Tock website and does not update automatically.</p>
+      <h3 id="private-build">Private build</h3>
+      <p>Relo is currently distributed as a private macOS build and does not update automatically.</p>
       <ol>
-        <li>Go to the <a href="../">Tock homepage</a> and choose Direct download.</li>
-        <li>Open <code>Tock.dmg</code>.</li>
-        <li>Drag Tock to your Applications folder.</li>
-        <li>Launch Tock. It appears in the menu bar.</li>
-        <li>macOS may prompt you to add Tock to your login items. You can change this later in Tock Settings or System Settings → General → Login Items & Extensions.</li>
+        <li>Open <code>Relo.dmg</code>.</li>
+        <li>Drag Relo to your Applications folder.</li>
+        <li>Launch Relo. It appears in the menu bar.</li>
+        <li>macOS may prompt you to add Relo to your login items. You can change this later in Relo Settings or System Settings → General → Login Items &amp; Extensions.</li>
       </ol>
     </section>
     <section id="basic-usage">
       <h2>Basic usage</h2>
-      <p>Tock supports two timekeeping modes.</p>
+      <p>Relo supports two timekeeping modes.</p>
       <ul>
         <li><strong>Countdown</strong> — run a timer for a set duration.</li>
         <li><strong>Stopwatch</strong> — count up from zero.</li>
       </ul>
       <h3 id="countdown">Countdown</h3>
-      <p>Start a timer by typing a duration into the Tock popover. Tock accepts flexible, natural inputs like these:</p>
+      <p>Start a timer by typing a duration into the Relo popover. Relo accepts flexible, natural inputs like these:</p>
       <ul>
         <li><code>10, 10m, 10 min</code> → 10-minute timer.</li>
         <li><code>1h 30m, 1.5 hours</code> → 1-hour 30-minute timer.</li>
@@ -102,9 +94,9 @@
       <h3 id="stopwatch">Stopwatch</h3>
       <p>Start a stopwatch in a few ways:</p>
       <ul>
-        <li>Click the play button in the Tock popover.</li>
+        <li>Click the play button in the Relo popover.</li>
         <li>Click <strong>Stopwatch</strong> in the context menu.</li>
-        <li>Type <code>sw</code> or <code>stopwatch</code> into the Tock popover and press <strong>Return</strong>.</li>
+        <li>Type <code>sw</code> or <code>stopwatch</code> into the Relo popover and press <strong>Return</strong>.</li>
       </ul>
       <p>Stopwatch timers count up indefinitely until paused or cleared.</p>
     </section>
@@ -116,23 +108,23 @@
         <li>Pause or clear a timer.</li>
         <li>Repeat the last timer (option visible when a timer has finished).</li>
         <li>Access Settings.</li>
-        <li>Access the About Tock panel.</li>
-        <li>Quit Tock.</li>
+        <li>Access the About Relo panel.</li>
+        <li>Quit Relo.</li>
       </ul>
     </section>
     <section id="settings">
       <h2>Settings</h2>
       <ul>
-        <li><strong>Launch Tock at Login</strong> — start Tock automatically when you sign in.</li>
-        <li><strong>Show Notifications</strong> — enable notification banners for timer completion.</li>
-        <li><strong>Notification Tone</strong> — choose the alert sound.</li>
-        <li><strong>Play Tone</strong> — control how many times the alert plays.</li>
+        <li><strong>Launch Relo at Login</strong> — start Relo automatically when you sign in.</li>
+        <li><strong>Show Notification</strong> — enable a notification banner for timer completion.</li>
+        <li><strong>Play Sound</strong> — play or silence the completion alert.</li>
+        <li><strong>Tone</strong> — choose from four bundled Relo sounds and preview the selection with the play button.</li>
+        <li><strong>Custom Tone</strong> — import an audio file, replace it later, or remove Relo’s private copy without changing the original file.</li>
+        <li><strong>Repeat</strong> — control how many times the alert plays.</li>
         <li><strong>Volume</strong> — control alert loudness.</li>
-        <li><strong>Default Unit</strong> — unit of time used when none is entered.</li>
-        <li><strong>Icon Size</strong> — adjust menu bar icon size.</li>
-        <li><strong>Button Size</strong> — adjust control button size.</li>
-        <li><strong>Button Brightness</strong> — adjust control button contrast.</li>
-        <li><strong>Open Tock</strong> — configure the global shortcut to open the popover.</li>
+        <li><strong>Default Unit</strong> — choose the unit used for bare numbers.</li>
+        <li><strong>Timer Presets</strong> — type an exact duration from 1 to 1,440 minutes or use the steppers to adjust three distinct one-click timers.</li>
+        <li><strong>Show/Hide Relo</strong> — configure the global shortcut to toggle the popover.</li>
         <li><strong>Pause/Resume</strong> — configure the global shortcut to toggle the active timer.</li>
         <li><strong>Clear Timer</strong> — configure the global shortcut to stop and clear the timer.</li>
       </ul>
@@ -141,52 +133,24 @@
       <h2>Keyboard shortcuts</h2>
       <p>All shortcuts are configurable in Settings.</p>
       <ul>
-        <li><strong>Open Tock</strong> — ⌃⌥⌘T</li>
+        <li><strong>Show/Hide Relo</strong> — ⌃⌥⌘R</li>
         <li><strong>Pause/Resume</strong> — ⌃⌥⌘P</li>
         <li><strong>Clear Timer</strong> — ⌃⌥⌘X</li>
       </ul>
     </section>
-    <section id="support-this-project">
-      <h2>Support this project</h2>
-      <p>Enjoying Tock? A quick rating or review on the <a href="https://apps.apple.com/app/id6757497053">Mac App Store</a> helps a lot.</p>
-      <ul>
-        <li><a href="https://www.buymeacoffee.com/edelstone">Buy Me a Coffee</a></li>
-        <li><a href="https://cash.app/$edelstone">Cash App</a></li>
-        <li><a href="https://www.paypal.me/edelstone">PayPal</a></li>
-        <li><a href="https://venmo.com/michaeledelstone">Venmo</a></li>
-      </ul>
-    </section>
     <section id="support">
       <h2>Bugs &amp; crashes</h2>
-      <p>If you run into a bug or unexpected behavior, please <a href="https://github.com/edelstone/tock/issues">open an issue on GitHub</a> and include your macOS version, Tock version, and any relevant details.</p>
+      <p>If you run into a bug or unexpected behavior, report it to the person who provided the private build and include your macOS version, Relo version, and any relevant details.</p>
     </section>
     <section id="privacy">
       <h2>Privacy</h2>
-      <p>Tock does not collect, store, or share personal data. There are no accounts, analytics, or tracking. For details, see the <a href="../privacy/">privacy policy</a>.</p>
+      <p>Relo does not collect, store, or share personal data. There are no accounts, analytics, or tracking. For details, see the <a href="../privacy/">privacy policy</a>.</p>
     </section>
   </main>
   <footer class="footer">
-    <a href="https://github.com/edelstone/tock">Source code</a>
-    <a href="https://github.com/edelstone/tock/blob/main/LICENSE">License</a>
+    <a href="../LICENSE">License</a>
     <a href="../privacy/">Privacy policy</a>
   </footer>
-  <script>
-    (function () {
-      const appStoreLinks = document.querySelectorAll('a[href*="apps.apple.com/app/id6757497053"]');
-      if (!appStoreLinks.length) {
-        return;
-      }
-
-      const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
-      if (!/mac/i.test(platform)) {
-        return;
-      }
-
-      appStoreLinks.forEach((link) => {
-        link.href = "macappstore://apps.apple.com/app/id6757497053";
-      });
-    })();
-  </script>
 </body>
 
 </html>
