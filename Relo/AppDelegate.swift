@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
   private var keyMonitor: Any?
   private var menuPanelAnchorTrackingID = 0
   private var lastStatusItemState: StatusItemState?
+  private var lastPopoverDismissAt = Date.distantPast
 
   private struct StatusItemState: Equatable {
     let isRunning: Bool
@@ -110,6 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
       })
     menuPanel.contentViewController = NSHostingController(rootView: view)
     menuPanel.onDismiss = { [weak self] in
+      self?.lastPopoverDismissAt = Date()
       self?.stopEventMonitors()
       self?.stopMenuPanelAnchorTracking()
     }
@@ -173,6 +175,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
   private func togglePopover(_ sender: NSStatusBarButton) {
     if menuPanel.isShown {
       menuPanel.dismiss(sender)
+    } else if Date().timeIntervalSince(lastPopoverDismissAt) < 0.2 {
+      // The outside-click monitor just dismissed the popover in response to THIS
+      // click's mouse-down. Don't reopen it on the mouse-up, so a click on the icon
+      // reliably closes an open popover regardless of status-item hit-test geometry.
+      return
     } else {
       showPopover(relativeTo: sender)
     }
@@ -528,25 +535,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
   private func handleGlobalMouseDown(_ event: NSEvent) {
     guard menuPanel.isShown else { return }
-    let inPopover = isEventInPopover(event)
-    let inStatusItem = isEventInStatusItem(event)
-    if inPopover || inStatusItem {
+    // A global monitor's event has no associated window, so event.locationInWindow
+    // is NOT reliable screen coordinates (its x can be far off). NSEvent.mouseLocation
+    // returns the true current location in screen coordinates — use that for hit
+    // testing against the popover and the status item.
+    let screenPoint = NSEvent.mouseLocation
+    if isEventInPopover(at: screenPoint) || isEventInStatusItem(at: screenPoint) {
       return
     }
     menuPanel.dismiss()
   }
 
-  private func isEventInPopover(_ event: NSEvent) -> Bool {
-    menuPanel.frame.contains(event.locationInWindow)
+  private func isEventInPopover(at screenPoint: NSPoint) -> Bool {
+    menuPanel.frame.contains(screenPoint)
   }
 
-  private func isEventInStatusItem(_ event: NSEvent) -> Bool {
+  private func isEventInStatusItem(at screenPoint: NSPoint) -> Bool {
     guard let button = statusItem.button, let window = button.window else { return false }
-    // Global-monitor mouse locations are in screen coordinates. Convert the
-    // button's bounds through its view hierarchy before comparing them.
-    let buttonFrameInWindow = button.convert(button.bounds, to: nil)
-    let buttonFrameOnScreen = window.convertToScreen(buttonFrameInWindow)
-    return buttonFrameOnScreen.contains(event.locationInWindow)
+    // Use the status item's full window cell, extended UP to the top of the screen.
+    // The menu-bar strip reaches a few points above the status window's maxY, so a
+    // click on the very top sliver of the icon would otherwise fall outside the rect
+    // and be treated as an outside click — dismissing on mouse-down and reopening on
+    // the button's mouse-up (the "top edge blip"). The button frame is unioned in as
+    // a defensive fallback.
+    var cell = window.frame
+    if let screen = window.screen ?? NSScreen.main {
+      cell.size.height = max(cell.size.height, screen.frame.maxY - cell.origin.y)
+    }
+    let buttonFrameOnScreen = window.convertToScreen(button.convert(button.bounds, to: nil))
+    return cell.contains(screenPoint) || buttonFrameOnScreen.contains(screenPoint)
   }
 
   private func applyHotkeyHint(for action: HotkeyAction, to item: NSMenuItem?) {

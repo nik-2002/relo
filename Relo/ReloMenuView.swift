@@ -58,10 +58,7 @@ struct ReloMenuView: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
-        .background(
-          RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(.regularMaterial)
-        )
+        .reloContentFill(cornerRadius: 6)
         .font(.system(size: 26, weight: .regular))
         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -200,15 +197,40 @@ struct ReloMenuView: View {
           isInputFocused = false
         }
     )
-    .background(
-      .regularMaterial,
-      in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-    )
-    .overlay {
-      RoundedRectangle(cornerRadius: 18, style: .continuous)
-        .stroke(.separator.opacity(0.5), lineWidth: 0.5)
+    .reloPanelSurface(cornerRadius: 18)
+  }
+}
+
+private extension View {
+  /// The primary floating "navigation layer" surface. Adopts Liquid Glass on
+  /// macOS 26+ (adaptive tinting, system-drawn edge), falling back to the
+  /// original frosted material + hairline stroke on macOS 14–25.
+  @ViewBuilder
+  func reloPanelSurface(cornerRadius: CGFloat) -> some View {
+    let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    if #available(macOS 26.0, *) {
+      self.glassEffect(.regular, in: shape)
+    } else {
+      self
+        .background(.regularMaterial, in: shape)
+        .overlay {
+          shape.stroke(.separator.opacity(0.5), lineWidth: 0.5)
+        }
+        .clipShape(shape)
     }
-    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+  }
+
+  /// A recessed *content* fill (the input field) that must NOT be glass, so it
+  /// does not stack glass-on-glass over the panel. Uses a subtle hierarchical
+  /// fill on macOS 26+, preserving the frosted material on macOS 14–25.
+  @ViewBuilder
+  func reloContentFill(cornerRadius: CGFloat) -> some View {
+    let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    if #available(macOS 26.0, *) {
+      self.background(shape.fill(.quaternary))
+    } else {
+      self.background(shape.fill(.regularMaterial))
+    }
   }
 }
 
