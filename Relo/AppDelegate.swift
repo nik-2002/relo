@@ -505,10 +505,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         return nil
       }
       if self.menuPanel.isShown && event.charactersIgnoringModifiers == " " {
-        if let textField = self.firstTextField(in: self.menuPanel.contentViewController?.view) {
+        // Redirect space into the input only when it is NOT already being
+        // edited (e.g. focus is on a preset button, where space would otherwise
+        // trigger the button). Re-focusing a field that is already the active
+        // editor selects all its text, so the returned space would replace the
+        // entire input — hence the currentEditor() guard.
+        if let textField = self.firstTextField(in: self.menuPanel.contentViewController?.view),
+           textField.currentEditor() == nil {
           self.menuPanel.makeFirstResponder(textField)
         }
-        // Return the event so AppKit delivers it to the now-focused text field,
+        // Return the event so AppKit delivers it to the focused text field,
         // which inserts the space at the actual cursor position.
         return event
       }

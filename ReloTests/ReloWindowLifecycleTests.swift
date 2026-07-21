@@ -119,36 +119,42 @@ final class MenuPanelTests: XCTestCase {
 
 @MainActor
 final class SettingsPresentationCoordinatorTests: XCTestCase {
-  func testSettingsAreScheduledOnlyAfterTheMenuIsDismissed() {
+  func testSettingsAreOrderedOnScreenBeforeTheMenuIsDismissed() {
     var events: [String] = []
     var scheduledAction: SettingsPresentationCoordinator.Action?
 
     SettingsPresentationCoordinator.present(
       dismissMenu: { events.append("dismiss") },
-      showSettings: { events.append("show") },
+      orderSettingsOnScreen: { events.append("order") },
+      activateSettings: { events.append("activate") },
       schedule: { action in
         events.append("schedule")
         scheduledAction = action
       }
     )
 
-    XCTAssertEqual(events, ["dismiss", "schedule"])
+    // The window is ordered on screen synchronously — while the popover is still
+    // live — which also promotes the app to .regular. Activation is deferred to
+    // the next runloop turn (so the policy change registers first) and runs
+    // before the popover dismissal, so the revealed window is already key.
+    XCTAssertEqual(events, ["order", "schedule"])
     XCTAssertNotNil(scheduledAction)
     scheduledAction?()
-    XCTAssertEqual(events, ["dismiss", "schedule", "show"])
+    XCTAssertEqual(events, ["order", "schedule", "activate", "dismiss"])
   }
 
-  func testSettingsAreNeverShownSynchronouslyDuringDismissal() {
-    var menuIsDismissed = false
+  func testMenuIsDismissedOnlyAfterSettingsAreActivated() {
+    var settingsActivated = false
     var scheduledAction: SettingsPresentationCoordinator.Action?
 
     SettingsPresentationCoordinator.present(
-      dismissMenu: { menuIsDismissed = true },
-      showSettings: { XCTAssertTrue(menuIsDismissed) },
+      dismissMenu: { XCTAssertTrue(settingsActivated) },
+      orderSettingsOnScreen: {},
+      activateSettings: { settingsActivated = true },
       schedule: { scheduledAction = $0 }
     )
 
-    XCTAssertTrue(menuIsDismissed)
+    // Activation and dismissal are both deferred; activation must run first.
     scheduledAction?()
   }
 }
