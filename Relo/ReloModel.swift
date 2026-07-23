@@ -145,12 +145,23 @@ final class ReloModel: ObservableObject {
 
   func pause() {
     guard isRunning, !isPaused else { return }
-    if mode == .countdown, let targetDate {
-      remaining = max(0, targetDate.timeIntervalSinceNow)
-      // For time-of-day timers, preserve targetDate so resume can restore the
-      // original absolute end time rather than computing a shifted one.
-      if !isTimeOfDayCountdown {
-        self.targetDate = nil
+    switch mode {
+    case .countdown:
+      if let targetDate {
+        remaining = max(0, targetDate.timeIntervalSinceNow)
+        // For time-of-day timers, preserve targetDate so resume can restore the
+        // original absolute end time rather than computing a shifted one.
+        if !isTimeOfDayCountdown {
+          self.targetDate = nil
+        }
+      }
+    case .stopwatch:
+      // elapsed is only updated on whole-second tick boundaries, so it can lag
+      // real time by up to one tick interval. Recompute it here or resume()
+      // would rebuild startDate from a stale value and permanently lose that
+      // fraction of a second on every pause/resume cycle.
+      if let startDate {
+        elapsed = Date().timeIntervalSince(startDate)
       }
     }
     isPaused = true
