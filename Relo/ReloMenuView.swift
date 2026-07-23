@@ -202,22 +202,23 @@ struct ReloMenuView: View {
 }
 
 private extension View {
-  /// The primary floating "navigation layer" surface. Adopts Liquid Glass on
-  /// macOS 26+ (adaptive tinting, system-drawn edge), falling back to the
-  /// original frosted material + hairline stroke on macOS 14–25.
-  @ViewBuilder
+  /// The primary floating "navigation layer" surface: frosted material with a
+  /// hairline stroke. Deliberately does NOT use `.glassEffect` — this panel is
+  /// a bespoke borderless, non-activating NSPanel at `.popUpMenu` level with a
+  /// fully transparent background, not a standard system-composited window.
+  /// Liquid Glass has no real backdrop to sample there, so instead of its
+  /// usual soft translucent edge it falls back to a hard, opaque black rim.
+  /// Wrapping it in `GlassEffectContainer` (the API's documented fix for edge
+  /// compositing) did not change this, confirming it's structural rather than
+  /// a missing-container issue.
   func reloPanelSurface(cornerRadius: CGFloat) -> some View {
     let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-    if #available(macOS 26.0, *) {
-      self.glassEffect(.regular, in: shape)
-    } else {
-      self
-        .background(.regularMaterial, in: shape)
-        .overlay {
-          shape.stroke(.separator.opacity(0.5), lineWidth: 0.5)
-        }
-        .clipShape(shape)
-    }
+    return self
+      .background(.regularMaterial, in: shape)
+      .overlay {
+        shape.stroke(.separator.opacity(0.5), lineWidth: 0.5)
+      }
+      .clipShape(shape)
   }
 
   /// A recessed *content* fill (the input field) that must NOT be glass, so it
