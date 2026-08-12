@@ -1,5 +1,24 @@
 # Relo Agent Notes
 
+## Start Here
+
+- `docs/agent-context/HANDOFF.md` — current state and the one open bug. Read first.
+- `docs/agent-context/environment.md` — how to build and run this app here. The default
+  CLI toolchain **cannot** build it; read before running any build or launch command.
+- `docs/agent-context/settings-crash-macos27.md` — resolved crash, with dead ends.
+- `docs/agent-context/glasseffect-black-border.md` — why `.glassEffect` is not used.
+
+## Build Quickstart
+
+The active `xcode-select` toolchain is Command Line Tools only and cannot build Relo.
+Point at the Xcode beta first:
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer
+xcodebuild -project Relo.xcodeproj -scheme Relo -configuration Debug \
+  -destination 'platform=macOS' -derivedDataPath /tmp/relo-dd build
+```
+
 ## Repo Layout
 
 - macOS app source lives in `Relo/` with the Xcode project at `Relo.xcodeproj`.
