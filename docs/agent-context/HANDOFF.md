@@ -65,7 +65,12 @@ close → start a timer → reopen popover → Settings, several times over.
    entirely — keep Relo `.regular` while Settings is open in a way that does not require
    repeated `activate()` calls, or find a way to show Settings without activation.
    Accept a persistent Dock icon if that is the cost.
-3. Push `main` to `origin` — it is several commits ahead.
+3. Push `main` to `origin` — it is several commits ahead and has never been pushed
+   since `0d3013d`.
+4. Get the test suite run once from the Xcode GUI. It has not been executed since
+   before `f7d24ec`; `xcodebuild test` could not launch the test host from a CLI
+   session (see `environment.md`). The build compiles cleanly — that is all that is
+   currently verified.
 
 ## Read next
 

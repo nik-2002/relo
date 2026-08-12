@@ -27,9 +27,19 @@ xcodebuild -project Relo.xcodeproj -scheme Relo -destination 'platform=macOS' \
   -derivedDataPath /tmp/relo-dd test
 ```
 
-The test runner hits a flaky `Could not launch ReloTests` LaunchServices error. It
-usually passes on retry (37 tests), but one session needed 6+ retries — do not conclude
-the tests are broken after two or three attempts.
+The test runner hits a `Could not launch “ReloTests”` LaunchServices error. Earlier
+sessions got past it on retry (37 tests pass), though one needed 6+ attempts — so do
+not conclude the tests are broken after two or three.
+
+But retrying is not reliably enough. On 2026-08-12 it failed **8 consecutive times**
+from an agent shell, never once reaching a test. Given that app *activation* is also
+broken for agent-launched processes on this machine (see below), the likely story is
+that `xcodebuild test` cannot launch the test host from a background CLI session at
+all, and that the earlier successes came from a differently-privileged context.
+
+Practical guidance: try a few times, and if it keeps failing, do not treat that as a
+red build and do not go debugging the test target. Ask the user to run the tests from
+the Xcode GUI instead, and say plainly that the suite is unverified until they do.
 
 ## Instrumenting — non-obvious gotchas
 
