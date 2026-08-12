@@ -9,6 +9,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
   private(set) var window: NSWindow?
   private let activatesApplication: Bool
+  private var demotionGeneration = 0
+  private static let demotionDelay: TimeInterval = 3
 
   init(activatesApplication: Bool = true) {
     self.activatesApplication = activatesApplication
@@ -34,6 +36,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
   ///    the popover is still live keeps that expectation non-null and safe.
   func orderOnScreen() {
     if activatesApplication {
+      // Cancel any pending demotion from a recent close (see windowWillClose)
+      // so a quick reopen doesn't flip the policy accessory -> regular -> ...
+      // in a burst. macOS's focus-stealing heuristic appears to throttle
+      // `NSApp.activate(ignoringOtherApps:)` after repeated activation-policy
+      // toggling in a short window, silently making the call a no-op even
+      // though the policy change and window creation both still succeed.
+      demotionGeneration &+= 1
       NSApp.setActivationPolicy(.regular)
     }
     let window = ensureWindow()
@@ -113,9 +122,19 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
       closingWindow.contentViewController = nil
       window = nil
       // Drop back to the menu-bar-only accessory policy that `orderOnScreen()`
-      // promoted away from, so the Dock icon doesn't linger after Settings closes.
+      // promoted away from, so the Dock icon doesn't linger after Settings
+      // closes — but only after a short delay, and only if Settings hasn't
+      // been reopened in the meantime (orderOnScreen bumps the generation to
+      // cancel this). An immediate revert means a quick close-then-reopen
+      // cycle toggles the policy accessory -> regular right back, which is
+      // the pattern that seems to trigger macOS's activation throttle.
       if activatesApplication {
-        NSApp.setActivationPolicy(.accessory)
+        demotionGeneration &+= 1
+        let generation = demotionGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.demotionDelay) { [weak self] in
+          guard let self, self.demotionGeneration == generation else { return }
+          NSApp.setActivationPolicy(.accessory)
+        }
       }
     }
     NotificationCenter.default.post(name: Self.settingsWillCloseNotification, object: nil)
