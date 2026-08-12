@@ -14,8 +14,9 @@ Recent commits, newest first:
 - `4436493` fix: stop stopwatch pause/resume from losing fractions of a second
 - `934f19f` fix: resolve Settings crash, unresponsive controls, and space-key input on macOS 27
 
-Nothing since `0d3013d` has been pushed to `origin/main`. There is also a stale local
-branch `liquid-glass-and-toggle-fix` whose work has since landed on `main`.
+`origin/main` is at `934f19f`, so the five commits above it are local-only. `main` is
+the sole local branch; the old `liquid-glass-and-toggle-fix` was fully contained in
+`main` and has been deleted.
 
 ## The open bug: Settings window stops opening
 
@@ -65,8 +66,8 @@ close → start a timer → reopen popover → Settings, several times over.
    entirely — keep Relo `.regular` while Settings is open in a way that does not require
    repeated `activate()` calls, or find a way to show Settings without activation.
    Accept a persistent Dock icon if that is the cost.
-3. Push `main` to `origin` — it is several commits ahead and has never been pushed
-   since `0d3013d`.
+3. Push `main` to `origin` — it is 5 commits ahead of `934f19f`, including two real
+   fixes (`4436493`, `54de074`) that exist only on this machine.
 4. Get the test suite run once from the Xcode GUI. It has not been executed since
    before `f7d24ec`; `xcodebuild test` could not launch the test host from a CLI
    session (see `environment.md`). The build compiles cleanly — that is all that is
