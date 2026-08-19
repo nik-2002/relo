@@ -7,7 +7,7 @@ Super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch
 ## Features
 
 - Menu bar countdown timer and stopwatch with natural-language input.
-- Flexible notifications: banners, multiple tones, repeat behavior, and volume.
+- Configurable alarm tones, repeat behavior, and volume.
 - Popover UI and complete context (right-click) menu.
 - Four configurable one-click timer presets.
 - Configurable alert behavior and global keyboard shortcuts.
@@ -28,6 +28,8 @@ See [RELEASING.md](RELEASING.md) for the full release workflow.
 
 ## Credits
 
+- Relo is created and maintained by Nico Estreba.
+- Based on [Tock](https://github.com/edelstone/tock) by Michael Edelstone.
 - Tones: [Notification Sounds](https://notificationsounds.com)
 - Icons: [Tabler Icons](https://tabler.io/icons)
 - Typography: [Manrope](https://fonts.google.com/specimen/Manrope)

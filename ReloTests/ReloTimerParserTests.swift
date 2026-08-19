@@ -77,6 +77,29 @@ final class ReloTimerParserTests: XCTestCase {
 
     model.stop()
   }
+
+  @MainActor
+  func testEmptyInputStartsTheDisplayedDefaultPreset() {
+    let model = ReloModel()
+
+    XCTAssertTrue(model.startFromInputs(defaultingTo: "20m"))
+    XCTAssertTrue(model.isRunning)
+    XCTAssertEqual(model.remaining, 1_200, accuracy: 0.01)
+    XCTAssertEqual(model.inputDuration, "")
+
+    model.stop()
+  }
+
+  @MainActor
+  func testTypedInputOverridesTheDisplayedDefaultPreset() {
+    let model = ReloModel()
+    model.inputDuration = "3m"
+
+    XCTAssertTrue(model.startFromInputs(defaultingTo: "20m"))
+    XCTAssertEqual(model.remaining, 180, accuracy: 0.01)
+
+    model.stop()
+  }
 }
 
 final class TimerPresetConfigurationTests: XCTestCase {
@@ -124,33 +147,21 @@ final class TimerPresetConfigurationTests: XCTestCase {
     XCTAssertEqual(TimerPresetConfiguration.steppedMinutes(from: 25, direction: 1), 26)
     XCTAssertEqual(TimerPresetConfiguration.steppedMinutes(from: 25, direction: -1), 24)
     XCTAssertEqual(TimerPresetConfiguration.steppedMinutes(from: 1, direction: -1), 1)
+    XCTAssertEqual(
+      TimerPresetConfiguration.largestPresetValue(from: ["20m", "5m", "10m"]),
+      "20m"
+    )
+    XCTAssertEqual(TimerPresetConfiguration.statusDisplayText(forPresetValue: "20m"), "20:00")
+    XCTAssertEqual(TimerPresetConfiguration.statusDisplayText(forPresetValue: "90m"), "01:30:00")
   }
 
-  func testPresetInputFormatterAcceptsOnlyDigits() {
-    let formatter = PresetMinutesFormatter()
+  func testPresetUserInputAcceptsOnlyDigitsAndClampsToRange() {
+    XCTAssertEqual(TimerPresetConfiguration.minutes(fromUserInput: "123"), 123)
+    XCTAssertEqual(TimerPresetConfiguration.minutes(fromUserInput: "0"), 1)
+    XCTAssertEqual(TimerPresetConfiguration.minutes(fromUserInput: "2000"), 1_440)
 
-    XCTAssertTrue(
-      formatter.isPartialStringValid(
-        "123",
-        newEditingString: nil,
-        errorDescription: nil
-      )
-    )
-    XCTAssertTrue(
-      formatter.isPartialStringValid(
-        "",
-        newEditingString: nil,
-        errorDescription: nil
-      )
-    )
-    for invalidValue in ["25m", "1.5", "-5", "ten", "1 0"] {
-      XCTAssertFalse(
-        formatter.isPartialStringValid(
-          invalidValue,
-          newEditingString: nil,
-          errorDescription: nil
-        )
-      )
+    for invalidValue in ["", "25m", "1.5", "-5", "ten", "1 0", "5lkj"] {
+      XCTAssertNil(TimerPresetConfiguration.minutes(fromUserInput: invalidValue))
     }
   }
 
@@ -229,28 +240,52 @@ final class AlarmConfigurationTests: XCTestCase {
     XCTAssertTrue(configuration.playsSound)
     XCTAssertEqual(configuration.tone, .bundled(.wakeUp))
     XCTAssertEqual(configuration.repeatLimit, 10)
-    XCTAssertEqual(configuration.volume, NotificationVolume.medium.level)
+    XCTAssertEqual(configuration.volume, Float(AlarmVolume.defaultLevel))
   }
 
   func testSilentAndCustomAlarmSettingsAreLoaded() {
     defaults.set(false, forKey: ReloSettingsKeys.playSound)
     defaults.set(NotificationTone.discreet.rawValue, forKey: ReloSettingsKeys.tone)
     defaults.set(NotificationRepeatOption.infinite.rawValue, forKey: ReloSettingsKeys.repeatCount)
-    defaults.set(NotificationVolume.high.rawValue, forKey: ReloSettingsKeys.volume)
+    defaults.set(LegacyNotificationVolume.high.rawValue, forKey: ReloSettingsKeys.volume)
 
     let configuration = AlarmConfiguration.load(defaults: defaults)
 
     XCTAssertFalse(configuration.playsSound)
     XCTAssertEqual(configuration.tone, .bundled(.discreet))
     XCTAssertNil(configuration.repeatLimit)
-    XCTAssertEqual(configuration.volume, NotificationVolume.high.level)
+    XCTAssertEqual(configuration.volume, Float(LegacyNotificationVolume.high.level))
+  }
+
+  func testContinuousAlarmVolumeIsLoadedAndClamped() {
+    defaults.set(0.42, forKey: ReloSettingsKeys.volumeLevel)
+    XCTAssertEqual(AlarmConfiguration.load(defaults: defaults).volume, 0.42, accuracy: 0.001)
+
+    defaults.set(1.4, forKey: ReloSettingsKeys.volumeLevel)
+    XCTAssertEqual(AlarmConfiguration.load(defaults: defaults).volume, 1.0)
+  }
+
+  func testLegacyAlarmVolumeMigratesToSliderLevel() {
+    defaults.set(LegacyNotificationVolume.low.rawValue, forKey: ReloSettingsKeys.volume)
+
+    let migratedLevel = AlarmVolume.migrateIfNeeded(defaults: defaults)
+
+    XCTAssertEqual(migratedLevel, LegacyNotificationVolume.low.level)
+    XCTAssertEqual(
+      defaults.double(forKey: ReloSettingsKeys.volumeLevel),
+      LegacyNotificationVolume.low.level
+    )
   }
 
   func testBundledToneSetStaysFocused() {
     XCTAssertEqual(
       NotificationTone.allCases,
-      [.alarmFrenzy, .discreet, .joyousChime, .wakeUp]
+      [.bedsideClock, .digitalTone, .discreet, .joyousChime, .wakeUp]
     )
+    XCTAssertEqual(NotificationTone.bedsideClock.displayName, "Bedside Clock")
+    XCTAssertEqual(NotificationTone.digitalTone.displayName, "Digital Tone")
+    XCTAssertEqual(NotificationTone.bedsideClock.fileExtension, "mp3")
+    XCTAssertEqual(NotificationTone.digitalTone.fileExtension, "mp3")
   }
 
   func testImportedToneIsCopiedAndLoadedWithoutChangingOtherAlarmSettings() throws {
@@ -262,7 +297,7 @@ final class AlarmConfigurationTests: XCTestCase {
     let importedTone = try importedToneStore.importTone(from: sourceURL, defaults: defaults)
     defaults.set(ImportedToneStore.selectionValue, forKey: ReloSettingsKeys.tone)
     defaults.set(NotificationRepeatOption.five.rawValue, forKey: ReloSettingsKeys.repeatCount)
-    defaults.set(NotificationVolume.low.rawValue, forKey: ReloSettingsKeys.volume)
+    defaults.set(LegacyNotificationVolume.low.rawValue, forKey: ReloSettingsKeys.volume)
 
     let configuration = AlarmConfiguration.load(
       defaults: defaults,
@@ -274,7 +309,7 @@ final class AlarmConfigurationTests: XCTestCase {
     XCTAssertTrue(FileManager.default.fileExists(atPath: importedTone.url.path))
     XCTAssertNotEqual(importedTone.url, sourceURL)
     XCTAssertEqual(configuration.repeatLimit, 5)
-    XCTAssertEqual(configuration.volume, NotificationVolume.low.level)
+    XCTAssertEqual(configuration.volume, Float(LegacyNotificationVolume.low.level))
   }
 
   func testReplacingAndRemovingImportedToneManagesOnlyRelosCopies() throws {

@@ -5,7 +5,10 @@ struct TimerPresetSettingsSection: View {
   @AppStorage(ReloSettingsKeys.timerPreset2) private var preset2 = TimerPresetConfiguration.defaultValues[1]
   @AppStorage(ReloSettingsKeys.timerPreset3) private var preset3 = TimerPresetConfiguration.defaultValues[2]
   @State private var errorMessage: String?
-  private let minutesFormatter = PresetMinutesFormatter()
+  @State private var presetTexts = TimerPresetConfiguration.defaultValues.map {
+    String($0.dropLast())
+  }
+  @FocusState private var focusedPreset: Int?
 
   var body: some View {
     Section("Timer Presets (min)") {
@@ -27,20 +30,35 @@ struct TimerPresetSettingsSection: View {
     .onAppear {
       setValues(TimerPresetConfiguration.resolvedValues(from: values))
     }
+    .onChange(of: focusedPreset) { oldValue, newValue in
+      guard let oldValue, oldValue != newValue else { return }
+      restorePresetTextIfEmpty(at: oldValue)
+    }
   }
 
   private func presetInput(index: Int, value: String) -> some View {
     HStack(spacing: 2) {
-      TextField(
-        "Preset \(index + 1)",
-        value: minuteBinding(at: index),
-        formatter: minutesFormatter
-      )
+      TextField("Preset \(index + 1)", text: minuteTextBinding(at: index))
       .labelsHidden()
       .textFieldStyle(.plain)
       .multilineTextAlignment(.center)
       .monospacedDigit()
       .frame(maxWidth: .infinity)
+      .focused($focusedPreset, equals: index)
+      .onSubmit {
+        restorePresetTextIfEmpty(at: index)
+      }
+      .help(
+        "Enter \(TimerPresetConfiguration.minuteRange.lowerBound) to "
+          + "\(TimerPresetConfiguration.minuteRange.upperBound) minutes."
+      )
+      .onChange(of: presetTexts[index]) { oldValue, newValue in
+        handlePresetInputChange(
+          at: index,
+          oldValue: oldValue,
+          newValue: newValue
+        )
+      }
 
       Stepper(
         "Preset \(index + 1)",
@@ -53,21 +71,63 @@ struct TimerPresetSettingsSection: View {
     }
     .padding(.leading, 8)
     .padding(.trailing, 4)
-    .frame(maxWidth: .infinity, minHeight: 30)
-    .background(.quaternary, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+    .frame(width: 80)
+    .frame(minHeight: 30)
+    .background(
+      .quaternary,
+      in: RoundedRectangle(
+        cornerRadius: ReloGeometry.compactControlRadius,
+        style: .continuous
+      )
+    )
   }
 
-  private func minuteBinding(at index: Int) -> Binding<Int> {
+  private func minuteTextBinding(at index: Int) -> Binding<String> {
     Binding(
       get: {
-        guard values.indices.contains(index) else {
-          return TimerPresetConfiguration.minuteRange.lowerBound
+        guard presetTexts.indices.contains(index) else {
+          return String(TimerPresetConfiguration.minuteRange.lowerBound)
         }
-        return TimerPresetConfiguration.minutes(from: values[index])
-          ?? TimerPresetConfiguration.minuteRange.lowerBound
+        return presetTexts[index]
       },
-      set: { updatePreset(at: index, minutes: $0) }
+      set: { input in
+        guard presetTexts.indices.contains(index) else { return }
+        presetTexts[index] = input
+      }
     )
+  }
+
+  private func handlePresetInputChange(
+    at index: Int,
+    oldValue: String,
+    newValue: String
+  ) {
+    if values.indices.contains(index),
+       let storedMinutes = TimerPresetConfiguration.minutes(from: values[index]),
+       newValue == String(storedMinutes) {
+      return
+    }
+
+    if newValue.isEmpty {
+      errorMessage = nil
+      return
+    }
+
+    guard let minutes = TimerPresetConfiguration.minutes(fromUserInput: newValue) else {
+      presetTexts[index] = oldValue
+      return
+    }
+    updatePreset(at: index, minutes: minutes)
+  }
+
+  private func restorePresetTextIfEmpty(at index: Int) {
+    guard presetTexts.indices.contains(index),
+          presetTexts[index].isEmpty,
+          values.indices.contains(index),
+          let storedMinutes = TimerPresetConfiguration.minutes(from: values[index]) else {
+      return
+    }
+    presetTexts[index] = String(storedMinutes)
   }
 
   private var values: [String] {
@@ -99,6 +159,7 @@ struct TimerPresetSettingsSection: View {
     })
     guard !otherMinutes.contains(clampedMinutes) else {
       errorMessage = "Preset times must be different."
+      syncPresetTexts(with: nextValues)
       return
     }
 
@@ -112,6 +173,14 @@ struct TimerPresetSettingsSection: View {
     preset1 = values[0]
     preset2 = values[1]
     preset3 = values[2]
+    syncPresetTexts(with: values)
+  }
+
+  private func syncPresetTexts(with values: [String]) {
+    guard values.count == 3 else { return }
+    presetTexts = values.map { value in
+      String(value.dropLast())
+    }
   }
 
   private func displayName(for value: String) -> String {

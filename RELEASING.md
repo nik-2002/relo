@@ -122,7 +122,7 @@ Use this flow for the official non–App Store release. It produces a signed, no
      spctl -a -vv /Applications/Relo.app
      ```
 
-8. Launch `Relo.app` from `/Applications` and verify core behavior, notifications, settings, and shortcuts.
+8. Launch `Relo.app` from `/Applications` and verify core timer, alarm, settings, and shortcut behavior.
 
 #### Publish the release
 

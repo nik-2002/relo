@@ -35,3 +35,27 @@ final class ReloModelStopwatchPauseTests: XCTestCase {
     XCTAssertGreaterThan(model.elapsed, 0.75)
   }
 }
+
+@MainActor
+final class ReloModelRestartTests: XCTestCase {
+  func testRestartRepeatsTheActiveCountdownFromItsOriginalInput() {
+    let model = ReloModel()
+    model.inputDuration = "3m"
+
+    XCTAssertTrue(model.startFromInputs())
+    model.pause()
+    model.remaining = 12
+
+    XCTAssertTrue(model.repeatLastInput())
+    XCTAssertTrue(model.isRunning)
+    XCTAssertFalse(model.isPaused)
+    XCTAssertEqual(model.remaining, 180)
+
+    model.stop()
+  }
+
+  func testCompletionUsesStopLabelWhileActiveTimersUseCancel() {
+    XCTAssertEqual(ReloMenuView.stopActionTitle(isFinished: false), "cancel")
+    XCTAssertEqual(ReloMenuView.stopActionTitle(isFinished: true), "stop")
+  }
+}

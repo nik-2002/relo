@@ -14,10 +14,10 @@
 		AAAABBBB0000000000000015 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 77777777000000000000000D /* Preview Assets.xcassets */; };
 		AAAABBBB0000000000000017 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 131313130000000000000013 /* AppDelegate.swift */; };
 		AAAABBBB0000000000000018 /* MenuDismissAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 141414140000000000000014 /* MenuDismissAction.swift */; };
-		AAAABBBB0000000000000019 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 151515150000000000000015 /* AppIcon.icns */; };
 		AAAABBBB0000000000000020 /* ReloSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 161616160000000000000016 /* ReloSettings.swift */; };
 		AAAABBBB0000000000000021 /* ReloSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171717170000000000000017 /* ReloSettingsView.swift */; };
-		AAAABBBB0000000000000022 /* Sounds/alarm-frenzy.wav in Resources */ = {isa = PBXBuildFile; fileRef = 181818180000000000000018 /* Sounds/alarm-frenzy.wav */; };
+		AAAABBBB0000000000000041 /* Sounds/bedside-clock.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 2B2B2B2B000000000000002B /* Sounds/bedside-clock.mp3 */; };
+		AAAABBBB0000000000000042 /* Sounds/digital-tone.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 2C2C2C2C000000000000002C /* Sounds/digital-tone.mp3 */; };
 		AAAABBBB0000000000000023 /* Sounds/discreet.wav in Resources */ = {isa = PBXBuildFile; fileRef = 191919190000000000000019 /* Sounds/discreet.wav */; };
 		AAAABBBB0000000000000027 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D1D1D1D000000000000001D /* SettingsWindowController.swift */; };
 		AAAABBBB0000000000000028 /* Sounds/joyous-chime.wav in Resources */ = {isa = PBXBuildFile; fileRef = 1E1E1E1E000000000000001E /* Sounds/joyous-chime.wav */; };
@@ -27,7 +27,6 @@
 		AAAABBBB0000000000000038 /* KeyboardShortcutsNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 292929290000000000000029 /* KeyboardShortcutsNames.swift */; };
 		AAAABBBB0000000000000039 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 3A3A3A3A000000000000003A /* KeyboardShortcuts */; };
 		AAAABBBB000000000000003A /* KeyboardShortcutsRecorderRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A2A2A2A000000000000002A /* KeyboardShortcutsRecorderRepresentable.swift */; };
-		AAAABBBB0000000000000040 /* NotificationIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343434340000000000000034 /* NotificationIdentifiers.swift */; };
 		A10000000000000000000001 /* ReloTimerParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* ReloTimerParser.swift */; };
 		A10000000000000000000003 /* ReloTimerParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* ReloTimerParserTests.swift */; };
 		C10000000000000000000001 /* GeneralSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000001 /* GeneralSettingsSection.swift */; };
@@ -37,6 +36,9 @@
 		C10000000000000000000005 /* GlobalHotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000005 /* GlobalHotkeyManager.swift */; };
 		C10000000000000000000006 /* MenuPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000006 /* MenuPanel.swift */; };
 		C10000000000000000000007 /* SettingsPresentationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000007 /* SettingsPresentationCoordinator.swift */; };
+		F10000000000000000000001 /* FloatingCountdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* FloatingCountdownView.swift */; };
+		F10000000000000000000002 /* FloatingCountdownWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* FloatingCountdownWindowController.swift */; };
+		B10000000000000000000010 /* ReloGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000010 /* ReloGeometry.swift */; };
 		D10000000000000000000001 /* ReloWindowLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* ReloWindowLifecycleTests.swift */; };
 		E10000000000000000000001 /* ReloModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* ReloModelTests.swift */; };
 /* End PBXBuildFile section */
@@ -54,10 +56,8 @@
 /* Begin PBXFileReference section */
 		131313130000000000000013 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		141414140000000000000014 /* MenuDismissAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuDismissAction.swift; sourceTree = "<group>"; };
-		151515150000000000000015 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		161616160000000000000016 /* ReloSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloSettings.swift; sourceTree = "<group>"; };
 		171717170000000000000017 /* ReloSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloSettingsView.swift; sourceTree = "<group>"; };
-		181818180000000000000018 /* Sounds/alarm-frenzy.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "Sounds/alarm-frenzy.wav"; sourceTree = "<group>"; };
 		191919190000000000000019 /* Sounds/discreet.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Sounds/discreet.wav; sourceTree = "<group>"; };
 		1A1A1A1A000000000000001A /* Sounds/fingerlicking.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Sounds/fingerlicking.wav; sourceTree = "<group>"; };
 		1B1B1B1B000000000000001B /* Sounds/glad-to-know.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "Sounds/glad-to-know.wav"; sourceTree = "<group>"; };
@@ -75,8 +75,9 @@
 		272727270000000000000027 /* HotkeyAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyAction.swift; sourceTree = "<group>"; };
 		292929290000000000000029 /* KeyboardShortcutsNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutsNames.swift; sourceTree = "<group>"; };
 		2A2A2A2A000000000000002A /* KeyboardShortcutsRecorderRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutsRecorderRepresentable.swift; sourceTree = "<group>"; };
+		2B2B2B2B000000000000002B /* Sounds/bedside-clock.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "Sounds/bedside-clock.mp3"; sourceTree = "<group>"; };
+		2C2C2C2C000000000000002C /* Sounds/digital-tone.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "Sounds/digital-tone.mp3"; sourceTree = "<group>"; };
 		333333330000000000000009 /* ReloModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloModel.swift; sourceTree = "<group>"; };
-		343434340000000000000034 /* NotificationIdentifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationIdentifiers.swift; sourceTree = "<group>"; };
 		44444444000000000000000A /* ReloMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloMenuView.swift; sourceTree = "<group>"; };
 		55555555000000000000000B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		77777777000000000000000D /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -94,6 +95,9 @@
 		C20000000000000000000007 /* SettingsPresentationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPresentationCoordinator.swift; sourceTree = "<group>"; };
 		D20000000000000000000001 /* ReloWindowLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloWindowLifecycleTests.swift; sourceTree = "<group>"; };
 		E20000000000000000000001 /* ReloModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloModelTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000001 /* FloatingCountdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingCountdownView.swift; sourceTree = "<group>"; };
+		F20000000000000000000002 /* FloatingCountdownWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingCountdownWindowController.swift; sourceTree = "<group>"; };
+		B20000000000000000000010 /* ReloGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloGeometry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -131,7 +135,7 @@
 				333333330000000000000009 /* ReloModel.swift */,
 				A10000000000000000000002 /* ReloTimerParser.swift */,
 				44444444000000000000000A /* ReloMenuView.swift */,
-				343434340000000000000034 /* NotificationIdentifiers.swift */,
+				B20000000000000000000010 /* ReloGeometry.swift */,
 				161616160000000000000016 /* ReloSettings.swift */,
 				171717170000000000000017 /* ReloSettingsView.swift */,
 				C20000000000000000000001 /* GeneralSettingsSection.swift */,
@@ -141,14 +145,16 @@
 				C20000000000000000000005 /* GlobalHotkeyManager.swift */,
 				C20000000000000000000006 /* MenuPanel.swift */,
 				C20000000000000000000007 /* SettingsPresentationCoordinator.swift */,
+				F20000000000000000000001 /* FloatingCountdownView.swift */,
+				F20000000000000000000002 /* FloatingCountdownWindowController.swift */,
 				262626260000000000000026 /* Hotkey.swift */,
 				272727270000000000000027 /* HotkeyAction.swift */,
 				292929290000000000000029 /* KeyboardShortcutsNames.swift */,
 				2A2A2A2A000000000000002A /* KeyboardShortcutsRecorderRepresentable.swift */,
 				1D1D1D1D000000000000001D /* SettingsWindowController.swift */,
 				141414140000000000000014 /* MenuDismissAction.swift */,
-				151515150000000000000015 /* AppIcon.icns */,
-				181818180000000000000018 /* Sounds/alarm-frenzy.wav */,
+				2B2B2B2B000000000000002B /* Sounds/bedside-clock.mp3 */,
+				2C2C2C2C000000000000002C /* Sounds/digital-tone.mp3 */,
 				191919190000000000000019 /* Sounds/discreet.wav */,
 				1A1A1A1A000000000000001A /* Sounds/fingerlicking.wav */,
 				1B1B1B1B000000000000001B /* Sounds/glad-to-know.wav */,
@@ -283,8 +289,8 @@
 			files = (
 				AAAABBBB0000000000000014 /* Assets.xcassets in Resources */,
 				AAAABBBB0000000000000015 /* Preview Assets.xcassets in Resources */,
-				AAAABBBB0000000000000019 /* AppIcon.icns in Resources */,
-				AAAABBBB0000000000000022 /* Sounds/alarm-frenzy.wav in Resources */,
+				AAAABBBB0000000000000041 /* Sounds/bedside-clock.mp3 in Resources */,
+				AAAABBBB0000000000000042 /* Sounds/digital-tone.mp3 in Resources */,
 				AAAABBBB0000000000000023 /* Sounds/discreet.wav in Resources */,
 				AAAABBBB0000000000000028 /* Sounds/joyous-chime.wav in Resources */,
 				AAAABBBB0000000000000034 /* Sounds/wake-up.wav in Resources */,
@@ -310,6 +316,7 @@
 				AAAABBBB0000000000000012 /* ReloModel.swift in Sources */,
 				A10000000000000000000001 /* ReloTimerParser.swift in Sources */,
 				AAAABBBB0000000000000013 /* ReloMenuView.swift in Sources */,
+				B10000000000000000000010 /* ReloGeometry.swift in Sources */,
 				AAAABBBB0000000000000020 /* ReloSettings.swift in Sources */,
 				AAAABBBB0000000000000021 /* ReloSettingsView.swift in Sources */,
 				AAAABBBB0000000000000035 /* Hotkey.swift in Sources */,
@@ -318,7 +325,6 @@
 				AAAABBBB000000000000003A /* KeyboardShortcutsRecorderRepresentable.swift in Sources */,
 				AAAABBBB0000000000000027 /* SettingsWindowController.swift in Sources */,
 				AAAABBBB0000000000000018 /* MenuDismissAction.swift in Sources */,
-				AAAABBBB0000000000000040 /* NotificationIdentifiers.swift in Sources */,
 				C10000000000000000000001 /* GeneralSettingsSection.swift in Sources */,
 				C10000000000000000000002 /* TimerPresetSettingsSection.swift in Sources */,
 				C10000000000000000000003 /* AlertSettingsSection.swift in Sources */,
@@ -326,6 +332,8 @@
 				C10000000000000000000005 /* GlobalHotkeyManager.swift in Sources */,
 				C10000000000000000000006 /* MenuPanel.swift in Sources */,
 				C10000000000000000000007 /* SettingsPresentationCoordinator.swift in Sources */,
+				F10000000000000000000001 /* FloatingCountdownView.swift in Sources */,
+				F10000000000000000000002 /* FloatingCountdownWindowController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -448,6 +456,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
@@ -456,7 +465,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Relo/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nicoestreba.relo;
 				PRODUCT_NAME = Relo;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -468,6 +477,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -489,7 +499,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				INFOPLIST_FILE = Relo/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nicoestreba.relo;
 				PRODUCT_NAME = Relo;
 				PROVISIONING_PROFILE_SPECIFIER = "";

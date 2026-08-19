@@ -8,7 +8,7 @@ struct GeneralSettingsSection: View {
   @State private var launchAtLoginError: String?
 
   var body: some View {
-    Section("General") {
+    Section {
       Toggle("Launch at Login", isOn: $launchAtLogin)
         .onChange(of: launchAtLogin) { _, newValue in
           guard !isUpdatingLaunchAtLogin else { return }

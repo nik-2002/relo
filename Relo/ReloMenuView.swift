@@ -1,16 +1,22 @@
 import SwiftUI
 
 struct ReloMenuView: View {
+  let usesSystemPopoverSurface: Bool
   @EnvironmentObject private var model: ReloModel
   @Environment(\.menuDismiss) private var dismiss
+  @Environment(\.menuSecondaryToggle) private var toggleSecondaryMenu
   @State private var placeholder = Self.randomSuggestion()
   @FocusState private var isInputFocused: Bool
   @AppStorage(ReloSettingsKeys.defaultUnit) private var defaultUnit = DefaultTimeUnit.default.rawValue
   @AppStorage(ReloSettingsKeys.timerPreset1) private var preset1 = TimerPresetConfiguration.defaultValues[0]
   @AppStorage(ReloSettingsKeys.timerPreset2) private var preset2 = TimerPresetConfiguration.defaultValues[1]
   @AppStorage(ReloSettingsKeys.timerPreset3) private var preset3 = TimerPresetConfiguration.defaultValues[2]
-  private let iconPointSize: CGFloat = 20
-  private let buttonPointSize: CGFloat = 28
+
+  private static let primaryCardWidth: CGFloat = 242
+
+  init(usesSystemPopoverSurface: Bool = false) {
+    self.usesSystemPopoverSurface = usesSystemPopoverSurface
+  }
 
   private var timerPresets: [TimerPreset] {
     let unit = DefaultTimeUnit(rawValue: defaultUnit) ?? .default
@@ -20,6 +26,12 @@ struct ReloMenuView: View {
     return TimerPresetConfiguration.uniquePresets(
       from: values,
       defaultUnit: unit
+    )
+  }
+
+  private var defaultPresetInput: String {
+    TimerPresetConfiguration.largestPresetValue(
+      from: [preset1, preset2, preset3]
     )
   }
 
@@ -37,13 +49,22 @@ struct ReloMenuView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    if usesSystemPopoverSurface {
+      primaryCard
+    } else {
+      primaryCard.reloMenuSurface()
+    }
+  }
+
+  private var primaryCard: some View {
+    VStack(alignment: .leading, spacing: 8) {
       VStack(alignment: .leading, spacing: 5) {
         ZStack(alignment: .leading) {
           if model.inputDuration.isEmpty {
             Text(placeholder)
               .foregroundColor(.secondary.opacity(0.35))
           }
+
           TextField("", text: $model.inputDuration)
             .focused($isInputFocused)
             .textFieldStyle(.plain)
@@ -51,15 +72,13 @@ struct ReloMenuView: View {
               model.inputErrorMessage = nil
             }
             .onSubmit {
-              if model.startFromInputs() {
-                dismiss()
-              }
+              _ = model.startFromInputs(defaultingTo: defaultPresetInput)
             }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
-        .reloContentFill(cornerRadius: 6)
-        .font(.system(size: 26, weight: .regular))
+        .reloNestedContentFill()
+        .font(.system(size: 19.5, weight: .regular))
         .frame(maxWidth: .infinity, alignment: .leading)
 
         if let inputErrorMessage = model.inputErrorMessage {
@@ -89,107 +108,47 @@ struct ReloMenuView: View {
       HStack(spacing: 5) {
         ForEach(timerPresets) { preset in
           Button {
-            if model.startPreset(preset.input) {
-              dismiss()
-            }
+            _ = model.startPreset(preset.input)
           } label: {
             Text(preset.displayName)
-              .font(.system(size: 11, weight: .medium, design: .rounded))
+              .font(.system(size: 12, weight: .medium, design: .rounded))
               .lineLimit(1)
-              .minimumScaleFactor(0.7)
-              .frame(maxWidth: .infinity)
           }
           .buttonStyle(.bordered)
           .controlSize(.small)
+          .fixedSize(horizontal: true, vertical: false)
           .help("Start a \(preset.input) timer")
           .accessibilityLabel("Start a \(preset.input) timer")
         }
       }
-      .frame(maxWidth: .infinity)
+      .frame(maxWidth: .infinity, alignment: .leading)
 
       HStack(spacing: 2) {
-        Button {
-          SettingsPresentationCoordinator.present(
-            dismissMenu: { dismiss() }
-          )
-        } label: {
-          Image("settings")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .frame(width: iconPointSize, height: iconPointSize)
-            .frame(width: buttonPointSize, height: buttonPointSize)
-            .foregroundStyle(.primary)
-            .opacity(0.65)
-        }
-        .buttonStyle(HoverPillButtonStyle())
+        actionControls
 
-        Spacer()
-        if model.canRepeat {
-          Button {
-            if model.repeatLastInput() {
-              dismiss()
-            }
-          } label: {
-            Image("repeat")
-              .renderingMode(.template)
-              .resizable()
-              .scaledToFit()
-              .frame(width: iconPointSize, height: iconPointSize)
-              .frame(width: buttonPointSize, height: buttonPointSize)
-              .foregroundStyle(.primary)
-              .opacity(0.65)
-          }
-          .buttonStyle(HoverPillButtonStyle())
-        }
-        Button {
-          if model.isRunning {
-            if model.isPaused {
-              if model.isFinished {
-                model.startStopwatch()
-                dismiss()
-              } else {
-                model.resume()
-              }
-            } else {
-              model.pause()
-            }
-          } else {
-            model.startStopwatch()
-            dismiss()
-          }
-        } label: {
-          Image((model.isRunning && !model.isPaused) ? "pause" : "play")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .frame(width: iconPointSize, height: iconPointSize)
-            .frame(width: buttonPointSize, height: buttonPointSize)
-            .foregroundStyle(.primary)
-            .opacity(0.65)
-        }
-        .buttonStyle(HoverPillButtonStyle())
+        Spacer(minLength: 2)
 
         Button {
-          model.stop()
-          dismiss()
+          isInputFocused = false
+          toggleSecondaryMenu()
         } label: {
-          Image("close")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .frame(width: iconPointSize, height: iconPointSize)
-            .frame(width: buttonPointSize, height: buttonPointSize)
-            .foregroundStyle(.primary)
-            .opacity(0.65)
+          Image(systemName: "ellipsis")
+            .font(.system(size: 14, weight: .regular))
+            .frame(width: 22, height: 22)
+            .foregroundStyle(.secondary)
         }
-        .buttonStyle(HoverPillButtonStyle())
-        .disabled(!model.isRunning)
-        .opacity(model.isRunning ? 1 : 0.5)
+        .buttonStyle(MenuTextButtonStyle())
+        .help("More options")
+        .accessibilityLabel("Show more options")
       }
+      .animation(
+        .snappy(duration: 0.26, extraBounce: 0),
+        value: model.isRunning
+      )
     }
-    .padding(16)
-    .frame(width: 210)
+    .padding(.horizontal, 16)
+    .padding(.vertical, 12)
+    .frame(width: Self.primaryCardWidth)
     .background(
       Color.clear
         .contentShape(Rectangle())
@@ -197,7 +156,169 @@ struct ReloMenuView: View {
           isInputFocused = false
         }
     )
-    .reloPanelSurface(cornerRadius: 18)
+  }
+
+}
+
+struct ReloSecondaryMenuView: View {
+  let usesSystemPopoverSurface: Bool
+  let setFloatingDisplayEnabled: (Bool) -> Void
+  @Environment(\.menuDismiss) private var dismiss
+  @AppStorage(ReloSettingsKeys.floatingCountdownDisplayEnabled) private var floatingDisplayEnabled = false
+
+  init(
+    usesSystemPopoverSurface: Bool = false,
+    setFloatingDisplayEnabled: @escaping (Bool) -> Void = { enabled in
+      UserDefaults.standard.set(
+        enabled,
+        forKey: ReloSettingsKeys.floatingCountdownDisplayEnabled
+      )
+    }
+  ) {
+    self.usesSystemPopoverSurface = usesSystemPopoverSurface
+    self.setFloatingDisplayEnabled = setFloatingDisplayEnabled
+  }
+
+  var body: some View {
+    if usesSystemPopoverSurface {
+      secondaryCard
+    } else {
+      secondaryCard.reloMenuSurface()
+    }
+  }
+
+  private var secondaryCard: some View {
+    VStack(spacing: 0) {
+      secondaryMenuButton("Settings...") {
+        SettingsPresentationCoordinator.present(
+          dismissMenu: { dismiss() }
+        )
+      }
+
+      Divider()
+
+      secondaryMenuButton(
+        floatingDisplayEnabled ? "Hide Floating Display" : "Show Floating Display"
+      ) {
+        setFloatingDisplayEnabled(!floatingDisplayEnabled)
+      }
+
+      Divider()
+
+      secondaryMenuButton("About Relo") {
+        showAboutPanel()
+        dismiss()
+      }
+
+      secondaryMenuButton("Quit") {
+        NSApp.terminate(nil)
+      }
+    }
+    .padding(4)
+    .frame(
+      width: SecondaryMenuPanel.contentSize.width,
+      height: SecondaryMenuPanel.contentSize.height
+    )
+  }
+
+  private func secondaryMenuButton(
+    _ title: String,
+    action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      Text(title)
+        .font(.system(size: 12, weight: .medium, design: .rounded))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .frame(height: 30)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(SecondaryMenuButtonStyle())
+  }
+
+  private func showAboutPanel() {
+    let icon = Bundle.main.url(forResource: "AppIcon", withExtension: "icns")
+      .flatMap(NSImage.init(contentsOf:)) ?? NSApp.applicationIconImage ?? NSImage()
+    NSApp.activate(ignoringOtherApps: true)
+    NSApp.orderFrontStandardAboutPanel(options: [
+      .applicationIcon: icon,
+    ])
+  }
+}
+
+extension ReloMenuView {
+
+  private func menuTextButton(
+    _ title: String,
+    action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      Text(title)
+        .font(.system(size: 12, weight: .medium, design: .rounded))
+        .lineLimit(1)
+    }
+    .buttonStyle(MenuTextButtonStyle())
+  }
+
+  @ViewBuilder
+  private var actionControls: some View {
+    if model.isRunning {
+      HStack(spacing: 2) {
+        if !model.isFinished {
+          fixedWidthPauseResumeButton {
+            if model.isPaused {
+              model.resume()
+            } else {
+              model.pause()
+            }
+          }
+        }
+
+        menuTextButton(Self.stopActionTitle(isFinished: model.isFinished)) {
+          model.stop()
+        }
+
+        if case .countdown = model.mode {
+          menuTextButton("restart") {
+            _ = model.repeatLastInput()
+          }
+        }
+      }
+      .fixedSize(horizontal: true, vertical: false)
+      .transition(actionControlsTransition)
+    } else {
+      menuTextButton("start") {
+        _ = model.startFromInputs(defaultingTo: defaultPresetInput)
+      }
+      .transition(actionControlsTransition)
+    }
+  }
+
+  private func fixedWidthPauseResumeButton(
+    action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      ZStack {
+        Text("resume")
+          .hidden()
+        Text(model.isPaused ? "resume" : "pause")
+          .contentTransition(.opacity)
+      }
+      .font(.system(size: 12, weight: .medium, design: .rounded))
+      .lineLimit(1)
+      .animation(.easeInOut(duration: 0.16), value: model.isPaused)
+    }
+    .buttonStyle(MenuTextButtonStyle())
+  }
+
+  static func stopActionTitle(isFinished: Bool) -> String {
+    isFinished ? "stop" : "cancel"
+  }
+
+  private var actionControlsTransition: AnyTransition {
+    .opacity.combined(
+      with: .scale(scale: 0.86, anchor: .leading)
+    )
   }
 }
 
@@ -211,12 +332,16 @@ private extension View {
   /// Wrapping it in `GlassEffectContainer` (the API's documented fix for edge
   /// compositing) did not change this, confirming it's structural rather than
   /// a missing-container issue.
-  func reloPanelSurface(cornerRadius: CGFloat) -> some View {
-    let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+  func reloMenuSurface() -> some View {
+    let shape = RoundedRectangle(
+      cornerRadius: ReloGeometry.menuSurfaceRadius,
+      style: .continuous
+    )
     return self
-      .background(.regularMaterial, in: shape)
+      .containerShape(shape)
+      .background(.thinMaterial, in: shape)
       .overlay {
-        shape.stroke(.separator.opacity(0.5), lineWidth: 0.5)
+        shape.stroke(.separator.opacity(0.35), lineWidth: 0.5)
       }
       .clipShape(shape)
   }
@@ -225,57 +350,78 @@ private extension View {
   /// does not stack glass-on-glass over the panel. Uses a subtle hierarchical
   /// fill on macOS 26+, preserving the frosted material on macOS 14–25.
   @ViewBuilder
-  func reloContentFill(cornerRadius: CGFloat) -> some View {
-    let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+  func reloNestedContentFill() -> some View {
     if #available(macOS 26.0, *) {
-      self.background(shape.fill(.quaternary))
+      self.background(
+        ConcentricRectangle(
+          corners: .concentric(
+            minimum: .fixed(ReloGeometry.compactControlRadius)
+          ),
+          isUniform: true
+        )
+        .fill(.quaternary)
+      )
     } else {
+      let shape = RoundedRectangle(
+        cornerRadius: ReloGeometry.compactControlRadius,
+        style: .continuous
+      )
       self.background(shape.fill(.regularMaterial))
     }
   }
 }
 
-private struct HoverPillButtonStyle: ButtonStyle {
+private struct SecondaryMenuButtonStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
-    HoverPillButton(configuration: configuration)
+    SecondaryMenuButton(configuration: configuration)
   }
 
-  private struct HoverPillButton: View {
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.colorScheme) private var colorScheme
-    let configuration: ButtonStyle.Configuration
+  private struct SecondaryMenuButton: View {
     @State private var isHovering = false
+    let configuration: ButtonStyle.Configuration
 
     var body: some View {
       configuration.label
-        .padding(3)
-        .background(
-          RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(.regularMaterial)
-            .opacity(backgroundOpacity)
-        )
-        .overlay(
-          RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(Color.white.opacity(overlayOpacity))
-        )
-        .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .scaleEffect(configuration.isPressed ? 0.965 : 1)
+        .foregroundStyle(isHovering ? Color(nsColor: .windowBackgroundColor) : .primary)
+        .background {
+          RoundedRectangle(
+            cornerRadius: ReloGeometry.compactControlRadius,
+            style: .continuous
+          )
+            .fill(Color.primary.opacity(isHovering ? 0.82 : 0))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 4)
+            .allowsHitTesting(false)
+        }
+        .opacity(configuration.isPressed ? 0.70 : 1)
         .onHover { hovering in
           isHovering = hovering
         }
-        .animation(.easeOut(duration: 0.12), value: isHovering)
-        .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+        .animation(.easeOut(duration: 0.10), value: isHovering)
     }
+  }
+}
 
-    private var backgroundOpacity: Double {
-      guard isEnabled else { return 0 }
-      let targetOpacity: Double = colorScheme == .dark ? 0.95 : 0.55
-      return (isHovering || configuration.isPressed) ? targetOpacity : 0
-    }
+private struct MenuTextButtonStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    MenuTextButton(configuration: configuration)
+  }
 
-    private var overlayOpacity: Double {
-      guard isEnabled, colorScheme == .dark, (isHovering || configuration.isPressed) else { return 0 }
-      return 0.04
+  private struct MenuTextButton: View {
+    @Environment(\.isEnabled) private var isEnabled
+    let configuration: ButtonStyle.Configuration
+
+    var body: some View {
+      configuration.label
+        .padding(.horizontal, 5)
+        .padding(.vertical, 4)
+        .contentShape(
+          RoundedRectangle(
+            cornerRadius: ReloGeometry.compactControlRadius,
+            style: .continuous
+          )
+        )
+        .opacity(isEnabled ? (configuration.isPressed ? 0.62 : 1) : 0.38)
     }
 
   }

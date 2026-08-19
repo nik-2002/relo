@@ -3,27 +3,35 @@ import XCTest
 @testable import Relo
 
 final class MenuPanelLayoutTests: XCTestCase {
+  func testGeometryUsesRoleBasedMacOSShapes() {
+    XCTAssertEqual(ReloGeometry.menuSurfaceRadius, 14)
+    XCTAssertEqual(ReloGeometry.compactControlRadius, 6)
+    XCTAssertEqual(ReloGeometry.floatingSurfaceRadius, 15)
+    XCTAssertEqual(ReloGeometry.menuBarTimerRadius, 7)
+    XCTAssertEqual(ReloGeometry.capsuleRadius(forHeight: 30), 15)
+  }
+
   func testColdStartSizeIsImmediatelyUsable() {
-    XCTAssertEqual(MenuPanelLayout.defaultContentSize.width, 210)
-    XCTAssertEqual(MenuPanelLayout.defaultContentSize.height, 152)
+    XCTAssertEqual(MenuPanelLayout.defaultContentSize.width, 242)
+    XCTAssertEqual(MenuPanelLayout.defaultContentSize.height, 120)
     XCTAssertGreaterThan(MenuPanelLayout.defaultContentSize.width, 0)
     XCTAssertGreaterThan(MenuPanelLayout.defaultContentSize.height, 0)
   }
 
-  func testPanelIsCenteredBelowItsMenuBarAnchor() {
+  func testPanelTopLeftIsAlignedBelowItsMenuBarAnchor() {
     let origin = MenuPanelLayout.origin(
       anchorFrame: NSRect(x: 500, y: 740, width: 30, height: 24),
-      panelSize: NSSize(width: 210, height: 152),
+      panelSize: NSSize(width: 242, height: 120),
       availableFrame: NSRect(x: 0, y: 0, width: 1_200, height: 740)
     )
 
-    XCTAssertEqual(origin.x, 410)
-    XCTAssertEqual(origin.y, 582)
+    XCTAssertEqual(origin.x, 500)
+    XCTAssertEqual(origin.y, 614)
   }
 
   func testPanelStaysInsideLeftAndRightScreenEdges() {
     let availableFrame = NSRect(x: 100, y: 50, width: 900, height: 700)
-    let panelSize = NSSize(width: 210, height: 152)
+    let panelSize = NSSize(width: 242, height: 152)
 
     let leftOrigin = MenuPanelLayout.origin(
       anchorFrame: NSRect(x: 100, y: 730, width: 20, height: 20),
@@ -37,13 +45,13 @@ final class MenuPanelLayoutTests: XCTestCase {
     )
 
     XCTAssertEqual(leftOrigin.x, 108)
-    XCTAssertEqual(rightOrigin.x, 782)
+    XCTAssertEqual(rightOrigin.x, 750)
   }
 
   func testPanelStaysAboveBottomScreenMargin() {
     let origin = MenuPanelLayout.origin(
       anchorFrame: NSRect(x: 300, y: 80, width: 20, height: 20),
-      panelSize: NSSize(width: 210, height: 152),
+      panelSize: NSSize(width: 242, height: 152),
       availableFrame: NSRect(x: 0, y: 50, width: 900, height: 700)
     )
 
@@ -90,10 +98,172 @@ final class MenuPanelTests: XCTestCase {
     XCTAssertEqual(panel.frame.size, MenuPanelLayout.defaultContentSize)
   }
 
+  func testSecondaryPanelHasAnIndependentFixedSize() {
+    let primaryPanel = MenuPanel()
+    let secondaryPanel = SecondaryMenuPanel()
+
+    XCTAssertEqual(primaryPanel.frame.size, MenuPanelLayout.defaultContentSize)
+    XCTAssertEqual(secondaryPanel.frame.size, SecondaryMenuPanel.contentSize)
+    XCTAssertNotEqual(secondaryPanel.frame.size, primaryPanel.frame.size)
+    XCTAssertEqual(secondaryPanel.animationBehavior, .none)
+  }
+
+  func testSecondaryPanelTucksUnderEllipsisWithOnlyItsFirstRowOverlapping() {
+    let primaryFrame = NSRect(x: 500, y: 600, width: 242, height: 140)
+    let origin = SecondaryMenuPanelLayout.origin(
+      primaryFrame: primaryFrame,
+      panelSize: SecondaryMenuPanel.contentSize,
+      availableFrame: NSRect(x: 0, y: 0, width: 1_440, height: 900)
+    )
+
+    XCTAssertEqual(origin.x, 692)
+    XCTAssertEqual(origin.y, 492)
+    XCTAssertEqual(
+      origin.x + SecondaryMenuPanelLayout.secondaryContentLeadingInset,
+      primaryFrame.maxX - SecondaryMenuPanelLayout.primaryTrailingPadding
+        - SecondaryMenuPanelLayout.ellipsisButtonSize
+    )
+    XCTAssertEqual(
+      origin.y + SecondaryMenuPanel.contentSize.height,
+      primaryFrame.minY + SecondaryMenuPanelLayout.actionRowOverlap
+    )
+  }
+
+  func testSecondaryPanelStaysOnScreenNearTheRightEdge() {
+    let primaryFrame = NSRect(x: 1_180, y: 600, width: 242, height: 140)
+    let origin = SecondaryMenuPanelLayout.origin(
+      primaryFrame: primaryFrame,
+      panelSize: SecondaryMenuPanel.contentSize,
+      availableFrame: NSRect(x: 0, y: 0, width: 1_440, height: 900)
+    )
+
+    XCTAssertEqual(origin.x, 1_276)
+  }
+
+  func testFloatingDisplayShowsOnlyForAnActiveCountdown() {
+    XCTAssertTrue(FloatingCountdownWindowController.shouldShow(
+      isDisplayEnabled: true,
+      hasActiveCountdown: true,
+      dismissedForCurrentCountdown: false
+    ))
+    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
+      isDisplayEnabled: false,
+      hasActiveCountdown: true,
+      dismissedForCurrentCountdown: false
+    ))
+    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
+      isDisplayEnabled: true,
+      hasActiveCountdown: false,
+      dismissedForCurrentCountdown: false
+    ))
+    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
+      isDisplayEnabled: true,
+      hasActiveCountdown: true,
+      dismissedForCurrentCountdown: true
+    ))
+  }
+
+  func testFloatingDisplayStaysVisibleForAFinishedCountdown() {
+    XCTAssertTrue(FloatingCountdownWindowController.shouldShow(
+      isDisplayEnabled: true,
+      hasActiveCountdown: false,
+      isFinishedCountdown: true,
+      dismissedForCurrentCountdown: false
+    ))
+    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
+      isDisplayEnabled: true,
+      hasActiveCountdown: false,
+      isFinishedCountdown: true,
+      dismissedForCurrentCountdown: true
+    ))
+    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
+      isDisplayEnabled: false,
+      hasActiveCountdown: false,
+      isFinishedCountdown: true,
+      dismissedForCurrentCountdown: false
+    ))
+    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
+      isDisplayEnabled: true,
+      hasActiveCountdown: false,
+      isFinishedCountdown: false,
+      dismissedForCurrentCountdown: false
+    ))
+  }
+
+  func testFloatingDisplayPreferenceChangesAfterSecondaryPanelHandoff() {
+    var events: [String] = []
+    var scheduledAction: FloatingDisplayMenuCoordinator.Action?
+
+    FloatingDisplayMenuCoordinator.setEnabled(
+      true,
+      dismissSecondary: { events.append("dismiss") },
+      restorePrimaryKey: { events.append("restore-key") },
+      writePreference: { events.append("write:\($0)") },
+      schedule: { action in
+        events.append("schedule")
+        scheduledAction = action
+      }
+    )
+
+    XCTAssertEqual(events, ["dismiss", "restore-key", "schedule"])
+    scheduledAction?()
+    XCTAssertEqual(events, ["dismiss", "restore-key", "schedule", "write:true"])
+  }
+
+  func testFloatingDisplayPreferenceCanBeDisabledThroughSameHandoff() {
+    var writtenValue: Bool?
+
+    FloatingDisplayMenuCoordinator.setEnabled(
+      false,
+      dismissSecondary: {},
+      restorePrimaryKey: {},
+      writePreference: { writtenValue = $0 },
+      schedule: { $0() }
+    )
+
+    XCTAssertEqual(writtenValue, false)
+    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
+      isDisplayEnabled: false,
+      hasActiveCountdown: true,
+      dismissedForCurrentCountdown: false
+    ))
+  }
+
+  func testFloatingDisplayDefaultsToUpperRightOfVisibleScreen() {
+    let origin = FloatingCountdownWindowController.defaultOrigin(
+      contentSize: NSSize(width: 110, height: 48),
+      visibleFrame: NSRect(x: 0, y: 24, width: 1_440, height: 876)
+    )
+
+    XCTAssertEqual(origin, NSPoint(x: 1_302, y: 824))
+  }
+
+  func testFloatingDisplayOriginIsConstrainedInsideVisibleScreenBounds() {
+    let visibleFrame = NSRect(x: 100, y: 50, width: 900, height: 700)
+    let contentSize = NSSize(width: 110, height: 48)
+
+    XCTAssertEqual(
+      FloatingCountdownWindowController.constrainedOrigin(
+        proposedOrigin: NSPoint(x: 2_000, y: 2_000),
+        contentSize: contentSize,
+        visibleFrame: visibleFrame
+      ),
+      NSPoint(x: 890, y: 702)
+    )
+    XCTAssertEqual(
+      FloatingCountdownWindowController.constrainedOrigin(
+        proposedOrigin: NSPoint(x: -500, y: -500),
+        contentSize: contentSize,
+        visibleFrame: visibleFrame
+      ),
+      NSPoint(x: 100, y: 50)
+    )
+  }
+
   func testSettingsCanOpenAfterDismissingAnEditingPanel() throws {
     _ = NSApplication.shared
     let panel = MenuPanel()
-    let settingsController = SettingsWindowController(activatesApplication: false)
+    let settingsController = SettingsWindowController()
     let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 120, height: 24))
     panel.contentView = NSView(frame: NSRect(origin: .zero, size: MenuPanelLayout.defaultContentSize))
     panel.contentView?.addSubview(textField)
@@ -106,7 +276,7 @@ final class MenuPanelTests: XCTestCase {
     XCTAssertTrue(panel.makeFirstResponder(textField))
     let editingResponder = try XCTUnwrap(panel.firstResponder)
 
-    panel.dismiss()
+    panel.dismiss(animated: false)
 
     XCTAssertFalse(panel.firstResponder === editingResponder)
     XCTAssertTrue(panel.firstResponder === panel)
@@ -133,14 +303,12 @@ final class SettingsPresentationCoordinatorTests: XCTestCase {
       }
     )
 
-    // The window is ordered on screen synchronously — while the popover is still
-    // live — which also promotes the app to .regular. Activation is deferred to
-    // the next runloop turn (so the policy change registers first) and runs
-    // before the popover dismissal, so the revealed window is already key.
-    XCTAssertEqual(events, ["order", "schedule"])
+    // The window is ordered and made key synchronously while the popover is
+    // still live. Only dismissal is deferred to the next runloop turn.
+    XCTAssertEqual(events, ["order", "activate", "schedule"])
     XCTAssertNotNil(scheduledAction)
     scheduledAction?()
-    XCTAssertEqual(events, ["order", "schedule", "activate", "dismiss"])
+    XCTAssertEqual(events, ["order", "activate", "schedule", "dismiss"])
   }
 
   func testMenuIsDismissedOnlyAfterSettingsAreActivated() {
@@ -154,7 +322,8 @@ final class SettingsPresentationCoordinatorTests: XCTestCase {
       schedule: { scheduledAction = $0 }
     )
 
-    // Activation and dismissal are both deferred; activation must run first.
+    XCTAssertTrue(settingsActivated)
+    // Dismissal is deferred, but Settings is already active.
     scheduledAction?()
   }
 }
@@ -163,7 +332,7 @@ final class SettingsPresentationCoordinatorTests: XCTestCase {
 final class SettingsWindowControllerTests: XCTestCase {
   func testSettingsWindowKeepsCloseEnabledAndDisablesMinimizeAndZoom() throws {
     _ = NSApplication.shared
-    let controller = SettingsWindowController(activatesApplication: false)
+    let controller = SettingsWindowController()
     controller.show()
     let window = try XCTUnwrap(controller.window)
     defer { window.close() }
@@ -171,6 +340,11 @@ final class SettingsWindowControllerTests: XCTestCase {
     XCTAssertTrue(window.styleMask.contains(.closable))
     XCTAssertTrue(window.styleMask.contains(.miniaturizable))
     XCTAssertTrue(window.styleMask.contains(.resizable))
+    XCTAssertTrue(window.styleMask.contains(.nonactivatingPanel))
+    XCTAssertTrue(window is NSPanel)
+    XCTAssertEqual(window.level, .floating)
+    XCTAssertFalse(try XCTUnwrap(window as? NSPanel).hidesOnDeactivate)
+    XCTAssertFalse(window.collectionBehavior.contains(.transient))
     XCTAssertTrue(try XCTUnwrap(window.standardWindowButton(.closeButton)).isEnabled)
     XCTAssertFalse(try XCTUnwrap(window.standardWindowButton(.miniaturizeButton)).isEnabled)
     XCTAssertFalse(try XCTUnwrap(window.standardWindowButton(.zoomButton)).isEnabled)
@@ -178,7 +352,7 @@ final class SettingsWindowControllerTests: XCTestCase {
 
   func testClosingSettingsDiscardsTheWindowBeforeReopening() throws {
     _ = NSApplication.shared
-    let controller = SettingsWindowController(activatesApplication: false)
+    let controller = SettingsWindowController()
     controller.show()
     let firstWindow = try XCTUnwrap(controller.window)
     XCTAssertTrue(firstWindow.isVisible)
@@ -196,7 +370,7 @@ final class SettingsWindowControllerTests: XCTestCase {
 
   func testSettingsCanRepeatedlyCloseAndReopenAfterEditingAField() throws {
     _ = NSApplication.shared
-    let controller = SettingsWindowController(activatesApplication: false)
+    let controller = SettingsWindowController()
     var previousWindow: NSWindow?
 
     for _ in 0..<3 {

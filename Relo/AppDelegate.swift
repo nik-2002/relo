@@ -1,14 +1,45 @@
 import AppKit
 import SwiftUI
 import Combine
+import QuartzCore
 import ServiceManagement
-import UserNotifications
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
+enum FloatingDisplayMenuCoordinator {
+  typealias Action = @MainActor () -> Void
+  typealias PreferenceWriter = @MainActor (Bool) -> Void
+  typealias Scheduler = (@escaping Action) -> Void
+
+  /// Finish the popup-window handoff before ordering the floating panel.
+  /// Creating another panel synchronously from the secondary card's button
+  /// action can make AppKit hide that transient child without clearing its
+  /// visibility state, leaving the ellipsis unable to reopen it.
+  static func setEnabled(
+    _ enabled: Bool,
+    dismissSecondary: @escaping Action,
+    restorePrimaryKey: @escaping Action,
+    writePreference: @escaping PreferenceWriter,
+    schedule: Scheduler = { action in
+      DispatchQueue.main.async {
+        action()
+      }
+    }
+  ) {
+    dismissSecondary()
+    restorePrimaryKey()
+    schedule {
+      writePreference(enabled)
+    }
+  }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
   private let menuPanel = MenuPanel()
+  private let secondaryMenuPanel = SecondaryMenuPanel()
   private let model = ReloModel()
+  private let floatingCountdownWindowController = FloatingCountdownWindowController()
   private lazy var hotkeyManager = GlobalHotkeyManager { [weak self] action in
     self?.handleHotkeyAction(action)
   }
@@ -20,35 +51,95 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
   private var clearItem: NSMenuItem?
   private var repeatItem: NSMenuItem?
   private var eventMonitor: Any?
+  private var localMouseMonitor: Any?
   private var keyMonitor: Any?
   private var menuPanelAnchorTrackingID = 0
   private var lastStatusItemState: StatusItemState?
   private var lastPopoverDismissAt = Date.distantPast
 
   private struct StatusItemState: Equatable {
-    let isRunning: Bool
+    let hasTimer: Bool
+    let usesRunningAppearance: Bool
     let displayText: String
     let tooltip: String?
-    let iconSize: NSSize
   }
 
   private func currentStatusItemState() -> StatusItemState {
-    let isRunning = model.isRunning
-    let displayText = isRunning ? model.formattedRemaining : ""
-    let tooltip = isRunning ? model.timeOfDayEndTooltip : nil
+    let hasTimer = model.isRunning
+    let usesRunningAppearance = hasTimer && !model.isPaused
+    let displayText = hasTimer
+      ? model.formattedRemaining
+      : TimerPresetConfiguration.idleStatusDisplayText()
+    let tooltip = usesRunningAppearance ? model.timeOfDayEndTooltip : nil
     return StatusItemState(
-      isRunning: isRunning,
+      hasTimer: hasTimer,
+      usesRunningAppearance: usesRunningAppearance,
       displayText: displayText,
-      tooltip: tooltip,
-      iconSize: menuBarIconSize()
+      tooltip: tooltip
     )
   }
 
-  private func statusBarImage() -> NSImage {
-    let baseImage = NSImage(named: "quietDial") ?? NSImage()
-    let image = baseImage.copy() as? NSImage ?? NSImage()
+  /// Both timer states use the same template-image geometry so changing from
+  /// idle to running does not pull an open card sideways. Idle is outlined;
+  /// running is filled with the numerals cut out, matching Onigiri's contrast.
+  private func timerStatusBarImage(
+    displayText: String,
+    usesRunningAppearance: Bool
+  ) -> NSImage {
+    let templateOpacity: CGFloat = usesRunningAppearance ? 1 : 0.30
+    let templateColor = NSColor.black.withAlphaComponent(templateOpacity)
+    let font = NSFont.monospacedDigitSystemFont(
+      ofSize: NSFont.systemFontSize - 1,
+      weight: .medium
+    )
+    let attributes: [NSAttributedString.Key: Any] = [
+      .font: font,
+      .foregroundColor: templateColor,
+    ]
+    let textSize = (displayText as NSString).size(withAttributes: attributes)
+    let imageSize = NSSize(
+      width: ceil(textSize.width) + 10,
+      height: max(19, ceil(textSize.height) + 4)
+    )
+    let image = NSImage(size: imageSize)
+
+    image.lockFocus()
+    let outlineWidth: CGFloat = 1
+    let horizontalInset = usesRunningAppearance ? 0 : outlineWidth / 2
+    let backgroundRect = NSRect(origin: .zero, size: imageSize)
+      .insetBy(dx: horizontalInset, dy: 1)
+    templateColor.setFill()
+    let backgroundPath = NSBezierPath(
+      roundedRect: backgroundRect,
+      xRadius: ReloGeometry.menuBarTimerRadius,
+      yRadius: ReloGeometry.menuBarTimerRadius
+    )
+    if usesRunningAppearance {
+      backgroundPath.fill()
+    } else {
+      templateColor.setStroke()
+      backgroundPath.lineWidth = outlineWidth
+      backgroundPath.stroke()
+    }
+
+    let textOrigin = NSPoint(
+      x: floor((imageSize.width - textSize.width) / 2),
+      y: floor((imageSize.height - textSize.height) / 2)
+    )
+    if usesRunningAppearance, let context = NSGraphicsContext.current {
+      context.saveGraphicsState()
+      context.compositingOperation = .destinationOut
+      (displayText as NSString).draw(
+        at: textOrigin,
+        withAttributes: attributes
+      )
+      context.restoreGraphicsState()
+    } else {
+      (displayText as NSString).draw(at: textOrigin, withAttributes: attributes)
+    }
+    image.unlockFocus()
+
     image.isTemplate = true
-    image.size = menuBarIconSize()
     return image
   }
 
@@ -60,13 +151,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     terminateOtherInstances()
     #endif
     TimerPresetConfiguration.prepareDefaultsIfNeeded()
+    configureApplicationIcon()
     configureMenuPanel()
     configureStatusItem()
     bindModel()
+    floatingCountdownWindowController.observe(model)
     updateStatusItem()
     configureHotkeys()
-    configureNotificationCategories()
-    UNUserNotificationCenter.current().delegate = self
     DispatchQueue.main.async { [weak self] in
       self?.promptForLaunchAtLoginIfNeeded()
     }
@@ -81,6 +172,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
   }
 
+  private func configureApplicationIcon() {
+    NSApp.applicationIconImage = bundledAppIcon
+  }
+
   private func promptForLaunchAtLoginIfNeeded() {
     let defaults = UserDefaults.standard
     guard !defaults.bool(forKey: ReloSettingsKeys.didPromptLoginItem) else { return }
@@ -91,6 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
 
     let alert = NSAlert()
+    alert.icon = bundledAppIcon
     alert.messageText = "Launch Relo at Login?"
     alert.informativeText = "This can be changed later in Settings."
     alert.addButton(withTitle: "Add")
@@ -104,34 +200,114 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
   }
 
   private func configureMenuPanel() {
-    let view = ReloMenuView()
+    let usesNativeGlass: Bool
+    if #available(macOS 26.0, *) {
+      usesNativeGlass = true
+    } else {
+      usesNativeGlass = false
+    }
+
+    let view = ReloMenuView(usesSystemPopoverSurface: usesNativeGlass)
       .environmentObject(model)
       .environment(\.menuDismiss, MenuDismissAction { [weak self] in
-        self?.menuPanel.dismiss()
+        self?.dismissMenuPanels()
       })
-    menuPanel.contentViewController = NSHostingController(rootView: view)
+      .environment(\.menuSecondaryToggle, MenuSecondaryToggleAction { [weak self] in
+        self?.toggleSecondaryMenuPanel()
+      })
+    let hostingController = NSHostingController(rootView: view)
+    if #available(macOS 26.0, *) {
+      menuPanel.installGlassContentViewController(hostingController)
+    } else {
+      menuPanel.contentViewController = hostingController
+    }
+
+    let secondaryView = ReloSecondaryMenuView(
+      usesSystemPopoverSurface: usesNativeGlass,
+      setFloatingDisplayEnabled: { [weak self] enabled in
+        self?.setFloatingDisplayEnabled(enabled)
+      }
+    )
+      .environment(\.menuDismiss, MenuDismissAction { [weak self] in
+        self?.dismissMenuPanels()
+      })
+    let secondaryHostingController = NSHostingController(rootView: secondaryView)
+    if #available(macOS 26.0, *) {
+      secondaryMenuPanel.installGlassContentViewController(
+        secondaryHostingController
+      )
+    } else {
+      secondaryMenuPanel.contentViewController = secondaryHostingController
+    }
+
     menuPanel.onDismiss = { [weak self] in
+      self?.secondaryMenuPanel.dismiss(animated: false)
       self?.lastPopoverDismissAt = Date()
       self?.stopEventMonitors()
       self?.stopMenuPanelAnchorTracking()
     }
   }
 
+  private func toggleSecondaryMenuPanel() {
+    guard menuPanel.isShown else { return }
+    if secondaryMenuPanel.isShown {
+      secondaryMenuPanel.dismiss()
+      menuPanel.makeKey()
+    } else {
+      secondaryMenuPanel.show(over: menuPanel)
+    }
+  }
+
+  private func setFloatingDisplayEnabled(_ enabled: Bool) {
+    FloatingDisplayMenuCoordinator.setEnabled(
+      enabled,
+      dismissSecondary: { [weak self] in
+        self?.secondaryMenuPanel.dismiss(animated: false)
+      },
+      restorePrimaryKey: { [weak self] in
+        guard let self, self.menuPanel.isShown else { return }
+        self.menuPanel.makeKey()
+      },
+      writePreference: { enabled in
+        UserDefaults.standard.set(
+          enabled,
+          forKey: ReloSettingsKeys.floatingCountdownDisplayEnabled
+        )
+      }
+    )
+  }
+
+  private func dismissMenuPanels() {
+    secondaryMenuPanel.dismiss()
+    menuPanel.dismiss()
+  }
+
   private func configureStatusItem() {
     guard let button = statusItem.button else { return }
+    button.wantsLayer = true
     button.target = self
     button.action = #selector(statusItemClicked(_:))
     button.sendAction(on: [.leftMouseUp, .rightMouseUp])
   }
 
   private func bindModel() {
-    Publishers.Merge3(
+    Publishers.Merge4(
       model.$remaining.map { _ in () },
       model.$elapsed.map { _ in () },
-      model.$isRunning.map { _ in () }
+      model.$isRunning.map { _ in () },
+      model.$isPaused.map { _ in () }
     )
       .sink { [weak self] _ in
         DispatchQueue.main.async {
+          self?.updateStatusItem()
+        }
+      }
+      .store(in: &cancellables)
+
+    NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+      .sink { [weak self] _ in
+        DispatchQueue.main.async {
+          self?.lastStatusItemState = nil
           self?.updateStatusItem()
         }
       }
@@ -144,20 +320,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     if state == lastStatusItemState {
       return
     }
+    let shouldAnimateStateChange = lastStatusItemState.map {
+      $0.hasTimer != state.hasTimer
+        || $0.usesRunningAppearance != state.usesRunningAppearance
+    } ?? false
     lastStatusItemState = state
-    if state.isRunning {
-      let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-      let attributes: [NSAttributedString.Key: Any] = [.font: font]
-      button.attributedTitle = NSAttributedString(string: state.displayText, attributes: attributes)
-      button.image = nil
-      button.toolTip = state.tooltip
-    } else {
-      button.title = ""
-      button.attributedTitle = NSAttributedString(string: "")
-      button.image = statusBarImage()
-      button.toolTip = nil
+
+    if shouldAnimateStateChange {
+      animateStatusItemStateChange(on: button)
     }
+
+    button.title = ""
+    button.attributedTitle = NSAttributedString(string: "")
+    button.image = timerStatusBarImage(
+      displayText: state.displayText,
+      usesRunningAppearance: state.usesRunningAppearance
+    )
+    button.imagePosition = .imageOnly
+    button.imageScaling = .scaleNone
+    button.toolTip = state.tooltip
     updateContextMenuItems()
+  }
+
+  private func animateStatusItemStateChange(on button: NSStatusBarButton) {
+    guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+          let layer = button.layer else { return }
+
+    let fade = CATransition()
+    fade.type = .fade
+    fade.duration = 0.22
+    fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+    layer.add(fade, forKey: "relo.timer-state-fade")
   }
 
   @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
@@ -185,22 +378,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
   }
 
-  private func showPopoverFromNotification() {
-    guard !menuPanel.isShown, let button = statusItem.button else { return }
-    showPopover(relativeTo: button)
-  }
-
-  private func showPopover(relativeTo button: NSStatusBarButton, anchorRetry: Int = 0) {
-    guard menuPanel.show(relativeTo: button) else {
-      guard let nextRetry = MenuPanelLayout.nextAnchorRetry(after: anchorRetry) else { return }
-      DispatchQueue.main.async { [weak self] in
-        guard let self,
-              !self.menuPanel.isShown,
-              let currentButton = self.statusItem.button else { return }
-        self.showPopover(relativeTo: currentButton, anchorRetry: nextRetry)
-      }
-      return
-    }
+  private func showPopover(relativeTo button: NSStatusBarButton) {
+    guard menuPanel.show(relativeTo: button) else { return }
     focusPopoverInput()
     startEventMonitors()
     startMenuPanelAnchorTracking()
@@ -264,7 +443,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
   private func trashFromHotKey() {
     model.stop()
-    menuPanel.dismiss()
+    dismissMenuPanels()
   }
 
   private func togglePauseResumeFromHotKey() {
@@ -280,7 +459,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
   }
 
   private func showContextMenu() {
-    menuPanel.dismiss()
+    dismissMenuPanels()
     let menu = NSMenu()
     menu.autoenablesItems = false
     menu.delegate = self
@@ -427,12 +606,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
   @objc private func stopTimerFromMenu() {
     model.stop()
-    menuPanel.dismiss()
+    dismissMenuPanels()
   }
 
   @objc private func repeatTimerFromMenu() {
     if model.repeatLastInput() {
-      menuPanel.dismiss()
+      dismissMenuPanels()
     }
   }
 
@@ -442,7 +621,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
   @objc private func openAboutFromMenu() {
     NSApp.activate(ignoringOtherApps: true)
-    NSApp.orderFrontStandardAboutPanel()
+    NSApp.orderFrontStandardAboutPanel(options: [
+      .applicationIcon: bundledAppIcon,
+    ])
   }
 
   func openSettingsFromCommand() {
@@ -451,8 +632,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
   private func showSettingsAfterDismissingMenuPanel() {
     SettingsPresentationCoordinator.present(
-      dismissMenu: { [menuPanel] in menuPanel.dismiss() }
+      dismissMenu: { [weak self] in self?.dismissMenuPanels() }
     )
+  }
+
+  private var bundledAppIcon: NSImage {
+    guard let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+          let icon = NSImage(contentsOf: iconURL) else {
+      return NSApp.applicationIconImage
+    }
+    return icon
   }
 
   private func configureHotkeys() {
@@ -470,41 +659,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
   }
 
-  private func configureNotificationCategories() {
-    let clearAction = UNNotificationAction(
-      identifier: NotificationIdentifiers.clearAction,
-      title: "Clear"
-    )
-    let repeatAction = UNNotificationAction(
-      identifier: NotificationIdentifiers.repeatAction,
-      title: "Repeat"
-    )
-    let category = UNNotificationCategory(
-      identifier: NotificationIdentifiers.timerFinishedCategory,
-      actions: [clearAction, repeatAction],
-      intentIdentifiers: [],
-      options: []
-    )
-    UNUserNotificationCenter.current().setNotificationCategories([category])
-  }
-
-  private func menuBarIconSize() -> NSSize {
-    let pointSize: CGFloat = 18
-    return NSSize(width: pointSize, height: pointSize)
-  }
-
   private func startEventMonitors() {
     stopEventMonitors()
     eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
       self?.handleGlobalMouseDown(event)
     }
+    localMouseMonitor = NSEvent.addLocalMonitorForEvents(
+      matching: [.leftMouseDown, .rightMouseDown, .leftMouseUp, .rightMouseUp]
+    ) { [weak self] event in
+      self?.handleLocalMouseEvent(event)
+      return event
+    }
     keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
       guard let self else { return event }
       if self.menuPanel.isShown && event.keyCode == 53 {
-        self.menuPanel.dismiss()
+        self.dismissMenuPanels()
         return nil
       }
-      if self.menuPanel.isShown && event.charactersIgnoringModifiers == " " {
+      if self.menuPanel.isKeyWindow && event.charactersIgnoringModifiers == " " {
         // Redirect space into the input only when it is NOT already being
         // edited (e.g. focus is on a preset button, where space would otherwise
         // trigger the button). Re-focusing a field that is already the active
@@ -518,10 +690,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         // which inserts the space at the actual cursor position.
         return event
       }
-      if self.menuPanel.isShown && (event.keyCode == 36 || event.keyCode == 76) {
-        if self.model.startFromInputs() {
-          self.menuPanel.dismiss()
-        }
+      if self.menuPanel.isKeyWindow && (event.keyCode == 36 || event.keyCode == 76) {
+        _ = self.model.startFromInputs(
+          defaultingTo: TimerPresetConfiguration.largestStoredPresetValue()
+        )
         return nil
       }
       return event
@@ -532,6 +704,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     if let eventMonitor {
       NSEvent.removeMonitor(eventMonitor)
       self.eventMonitor = nil
+    }
+    if let localMouseMonitor {
+      NSEvent.removeMonitor(localMouseMonitor)
+      self.localMouseMonitor = nil
     }
     if let keyMonitor {
       NSEvent.removeMonitor(keyMonitor)
@@ -549,11 +725,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     if isEventInPopover(at: screenPoint) || isEventInStatusItem(at: screenPoint) {
       return
     }
-    menuPanel.dismiss()
+    dismissMenuPanels()
+  }
+
+  private func handleLocalMouseEvent(_ event: NSEvent) {
+    guard menuPanel.isShown else { return }
+
+    if secondaryMenuPanel.isShown {
+      if event.window === secondaryMenuPanel {
+        return
+      }
+      if event.window === menuPanel {
+        // Let controls in the primary card finish handling mouse-up first.
+        // In particular, the ellipsis action must see the secondary card as
+        // still visible so its second click closes it instead of reopening it.
+        if event.type == .leftMouseUp || event.type == .rightMouseUp {
+          DispatchQueue.main.async { [weak self] in
+            guard let self, self.secondaryMenuPanel.isShown else { return }
+            self.secondaryMenuPanel.dismiss()
+          }
+        }
+        return
+      }
+      dismissMenuPanels()
+      return
+    }
+
+    let screenPoint = NSEvent.mouseLocation
+    if event.window !== menuPanel, !isEventInStatusItem(at: screenPoint) {
+      dismissMenuPanels()
+    }
   }
 
   private func isEventInPopover(at screenPoint: NSPoint) -> Bool {
     menuPanel.frame.contains(screenPoint)
+      || (secondaryMenuPanel.isShown && secondaryMenuPanel.frame.contains(screenPoint))
   }
 
   private func isEventInStatusItem(at screenPoint: NSPoint) -> Bool {
@@ -584,32 +790,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     item.keyEquivalentModifierMask = hotkey.modifierFlags
   }
 
-  nonisolated func userNotificationCenter(
-    _ center: UNUserNotificationCenter,
-    willPresent notification: UNNotification
-  ) async -> UNNotificationPresentationOptions {
-    return [.banner, .list]
-  }
-
-  nonisolated func userNotificationCenter(
-    _ center: UNUserNotificationCenter,
-    didReceive response: UNNotificationResponse
-  ) async {
-    switch response.actionIdentifier {
-    case NotificationIdentifiers.clearAction:
-      Task { @MainActor in
-        self.model.stop()
-      }
-    case NotificationIdentifiers.repeatAction:
-      Task { @MainActor in
-        _ = self.model.repeatLastInput()
-      }
-    case UNNotificationDefaultActionIdentifier:
-      Task { @MainActor in
-        self.showPopoverFromNotification()
-      }
-    default:
-      break
-    }
-  }
 }
