@@ -140,53 +140,49 @@ final class MenuPanelTests: XCTestCase {
     XCTAssertEqual(origin.x, 1_276)
   }
 
-  func testFloatingDisplayShowsOnlyForAnActiveCountdown() {
+  func testFloatingDisplayStaysVisibleRegardlessOfTimerState() {
     XCTAssertTrue(FloatingCountdownWindowController.shouldShow(
       isDisplayEnabled: true,
-      hasActiveCountdown: true,
-      dismissedForCurrentCountdown: false
+      isDismissed: false
     ))
     XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
       isDisplayEnabled: false,
-      hasActiveCountdown: true,
-      dismissedForCurrentCountdown: false
+      isDismissed: false
     ))
     XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
       isDisplayEnabled: true,
-      hasActiveCountdown: false,
-      dismissedForCurrentCountdown: false
-    ))
-    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
-      isDisplayEnabled: true,
-      hasActiveCountdown: true,
-      dismissedForCurrentCountdown: true
+      isDismissed: true
     ))
   }
 
-  func testFloatingDisplayStaysVisibleForAFinishedCountdown() {
-    XCTAssertTrue(FloatingCountdownWindowController.shouldShow(
+  func testFloatingDisplayDismissalLiftsOnTheNextTimerOrReEnable() {
+    // A timer starting lifts a dismissal.
+    XCTAssertTrue(FloatingCountdownWindowController.shouldClearDismissal(
+      hasActiveTimer: true,
+      hadActiveTimer: false,
       isDisplayEnabled: true,
-      hasActiveCountdown: false,
-      isFinishedCountdown: true,
-      dismissedForCurrentCountdown: false
+      wasDisplayEnabled: true
     ))
-    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
+    // Re-enabling the display lifts a dismissal on its own.
+    XCTAssertTrue(FloatingCountdownWindowController.shouldClearDismissal(
+      hasActiveTimer: false,
+      hadActiveTimer: false,
       isDisplayEnabled: true,
-      hasActiveCountdown: false,
-      isFinishedCountdown: true,
-      dismissedForCurrentCountdown: true
+      wasDisplayEnabled: false
     ))
-    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
-      isDisplayEnabled: false,
-      hasActiveCountdown: false,
-      isFinishedCountdown: true,
-      dismissedForCurrentCountdown: false
-    ))
-    XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
+    // A countdown reaching zero is not a start, so the dismissal holds.
+    XCTAssertFalse(FloatingCountdownWindowController.shouldClearDismissal(
+      hasActiveTimer: false,
+      hadActiveTimer: true,
       isDisplayEnabled: true,
-      hasActiveCountdown: false,
-      isFinishedCountdown: false,
-      dismissedForCurrentCountdown: false
+      wasDisplayEnabled: true
+    ))
+    // Nor is a timer that was already running.
+    XCTAssertFalse(FloatingCountdownWindowController.shouldClearDismissal(
+      hasActiveTimer: true,
+      hadActiveTimer: true,
+      isDisplayEnabled: true,
+      wasDisplayEnabled: true
     ))
   }
 
@@ -224,8 +220,7 @@ final class MenuPanelTests: XCTestCase {
     XCTAssertEqual(writtenValue, false)
     XCTAssertFalse(FloatingCountdownWindowController.shouldShow(
       isDisplayEnabled: false,
-      hasActiveCountdown: true,
-      dismissedForCurrentCountdown: false
+      isDismissed: false
     ))
   }
 

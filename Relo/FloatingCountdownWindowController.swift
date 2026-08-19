@@ -24,19 +24,27 @@ private final class FloatingCountdownPanel: NSPanel {
 final class FloatingCountdownWindowController: NSObject {
   static let contentSize = NSSize(width: 110, height: 48)
 
-  /// A finished countdown keeps the window on screen — in its white "time's
-  /// up" state — until the user dismisses it or stops the timer. Only the
-  /// active-countdown flag drives the dismissal reset, so an `x` press still
-  /// stays dismissed for the rest of the countdown it was pressed on.
+  /// The window is not tied to the timer's state: once the display is enabled
+  /// it stays on screen through running, finished, and idle alike. Only the
+  /// `x` button and the Settings toggle take it away.
   static func shouldShow(
     isDisplayEnabled: Bool,
-    hasActiveCountdown: Bool,
-    isFinishedCountdown: Bool = false,
-    dismissedForCurrentCountdown: Bool
+    isDismissed: Bool
   ) -> Bool {
-    isDisplayEnabled
-      && (hasActiveCountdown || isFinishedCountdown)
-      && !dismissedForCurrentCountdown
+    isDisplayEnabled && !isDismissed
+  }
+
+  /// An `x` press means "not right now", not "off": the dismissal lifts when
+  /// the next timer starts, or when the display is re-enabled in Settings.
+  /// A countdown reaching zero is not a start, so dismissing a finished
+  /// window keeps it hidden until something new begins.
+  static func shouldClearDismissal(
+    hasActiveTimer: Bool,
+    hadActiveTimer: Bool,
+    isDisplayEnabled: Bool,
+    wasDisplayEnabled: Bool
+  ) -> Bool {
+    (hasActiveTimer && !hadActiveTimer) || (isDisplayEnabled && !wasDisplayEnabled)
   }
 
   static func defaultOrigin(
@@ -70,28 +78,21 @@ final class FloatingCountdownWindowController: NSObject {
   private var window: NSPanel?
   private var cancellables = Set<AnyCancellable>()
   private weak var model: ReloModel?
-  private var hadActiveCountdown = false
+  private var hadActiveTimer = false
   private var wasDisplayEnabled = false
   private var isDisplayEnabled = UserDefaults.standard.bool(
     forKey: ReloSettingsKeys.floatingCountdownDisplayEnabled
   )
-  private var dismissedForCurrentCountdown = false
+  private var isDismissed = false
 
   func observe(_ model: ReloModel) {
     self.model = model
     Publishers.CombineLatest4(model.$isRunning, model.$isPaused, model.$isFinished, model.$mode)
-      .sink { [weak self, weak model] isRunning, _, isFinished, mode in
+      .sink { [weak self, weak model] isRunning, _, isFinished, _ in
         guard let self, let model else { return }
-        let isCountdown: Bool
-        if case .countdown = mode {
-          isCountdown = true
-        } else {
-          isCountdown = false
-        }
         self.updateWindow(
           for: model,
-          hasActiveCountdown: isCountdown && isRunning && !isFinished,
-          isFinishedCountdown: isCountdown && isRunning && isFinished
+          hasActiveTimer: isRunning && !isFinished
         )
       }
       .store(in: &cancellables)
@@ -112,33 +113,31 @@ final class FloatingCountdownWindowController: NSObject {
     guard let model else { return }
     updateWindow(
       for: model,
-      hasActiveCountdown: isActiveCountdown(model),
-      isFinishedCountdown: isFinishedCountdown(model)
+      hasActiveTimer: hasActiveTimer(model)
     )
   }
 
   private func updateWindow(
     for model: ReloModel,
-    hasActiveCountdown: Bool,
-    isFinishedCountdown: Bool
+    hasActiveTimer: Bool
   ) {
     defer {
-      hadActiveCountdown = hasActiveCountdown
+      hadActiveTimer = hasActiveTimer
       wasDisplayEnabled = isDisplayEnabled
     }
 
-    if isDisplayEnabled && !wasDisplayEnabled {
-      dismissedForCurrentCountdown = false
-    }
-    if hasActiveCountdown && !hadActiveCountdown {
-      dismissedForCurrentCountdown = false
+    if Self.shouldClearDismissal(
+      hasActiveTimer: hasActiveTimer,
+      hadActiveTimer: hadActiveTimer,
+      isDisplayEnabled: isDisplayEnabled,
+      wasDisplayEnabled: wasDisplayEnabled
+    ) {
+      isDismissed = false
     }
 
     guard Self.shouldShow(
       isDisplayEnabled: isDisplayEnabled,
-      hasActiveCountdown: hasActiveCountdown,
-      isFinishedCountdown: isFinishedCountdown,
-      dismissedForCurrentCountdown: dismissedForCurrentCountdown
+      isDismissed: isDismissed
     ) else {
       hide(animated: true)
       return
@@ -146,16 +145,8 @@ final class FloatingCountdownWindowController: NSObject {
     show(model: model)
   }
 
-  private func isActiveCountdown(_ model: ReloModel) -> Bool {
-    guard model.isRunning, !model.isFinished else { return false }
-    if case .countdown = model.mode { return true }
-    return false
-  }
-
-  private func isFinishedCountdown(_ model: ReloModel) -> Bool {
-    guard model.isRunning, model.isFinished else { return false }
-    if case .countdown = model.mode { return true }
-    return false
+  private func hasActiveTimer(_ model: ReloModel) -> Bool {
+    model.isRunning && !model.isFinished
   }
 
   private func show(model: ReloModel) {
@@ -178,8 +169,8 @@ final class FloatingCountdownWindowController: NSObject {
     }
   }
 
-  private func dismissForCurrentCountdown() {
-    dismissedForCurrentCountdown = true
+  private func dismiss() {
+    isDismissed = true
     hide(animated: true)
   }
 
@@ -228,7 +219,7 @@ final class FloatingCountdownWindowController: NSObject {
     window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
     window.contentViewController = NSHostingController(
       rootView: FloatingCountdownView(model: model) { [weak self] in
-        self?.dismissForCurrentCountdown()
+        self?.dismiss()
       }
     )
     self.window = window
