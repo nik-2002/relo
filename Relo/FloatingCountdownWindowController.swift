@@ -62,6 +62,25 @@ final class FloatingCountdownWindowController: NSObject {
     )
   }
 
+  /// Where the window should reappear: the spot the user last dragged it to,
+  /// pulled back on screen if that spot no longer exists (display unplugged,
+  /// resolution changed), or the default upper-right corner if it has never
+  /// been moved.
+  static func restoredOrigin(
+    savedOrigin: NSPoint?,
+    contentSize: NSSize,
+    visibleFrame: NSRect
+  ) -> NSPoint {
+    guard let savedOrigin else {
+      return defaultOrigin(contentSize: contentSize, visibleFrame: visibleFrame)
+    }
+    return constrainedOrigin(
+      proposedOrigin: savedOrigin,
+      contentSize: contentSize,
+      visibleFrame: visibleFrame
+    )
+  }
+
   static func constrainedOrigin(
     proposedOrigin: NSPoint,
     contentSize: NSSize,
@@ -84,6 +103,7 @@ final class FloatingCountdownWindowController: NSObject {
     forKey: ReloSettingsKeys.floatingCountdownDisplayEnabled
   )
   private var isDismissed = false
+  private var isPlacingWindow = false
 
   func observe(_ model: ReloModel) {
     self.model = model
@@ -152,7 +172,10 @@ final class FloatingCountdownWindowController: NSObject {
   private func show(model: ReloModel) {
     let window = ensureWindow(model: model)
     guard !window.isVisible || !window.occlusionState.contains(.visible) else { return }
-    placeWindowAtDefault(window)
+    // The entrance animation moves the window, which would otherwise be saved
+    // back as if the user had dragged it there.
+    isPlacingWindow = true
+    placeWindowAtRestoredOrigin(window)
 
     let finalFrame = window.frame
     var initialFrame = finalFrame
@@ -166,6 +189,8 @@ final class FloatingCountdownWindowController: NSObject {
       context.timingFunction = CAMediaTimingFunction(name: .easeOut)
       window.animator().alphaValue = 1
       window.animator().setFrame(finalFrame, display: true)
+    } completionHandler: { [weak self] in
+      self?.isPlacingWindow = false
     }
   }
 
@@ -222,15 +247,40 @@ final class FloatingCountdownWindowController: NSObject {
         self?.dismiss()
       }
     )
+    NotificationCenter.default.publisher(for: NSWindow.didMoveNotification, object: window)
+      .sink { [weak self] notification in
+        guard let self, !self.isPlacingWindow,
+              let moved = notification.object as? NSWindow else { return }
+        self.saveOrigin(moved.frame.origin)
+      }
+      .store(in: &cancellables)
+
     self.window = window
     return window
   }
 
-  private func placeWindowAtDefault(_ window: NSWindow) {
+  private func placeWindowAtRestoredOrigin(_ window: NSWindow) {
     guard let visibleFrame = NSScreen.main?.visibleFrame ?? window.screen?.visibleFrame else { return }
-    window.setFrameOrigin(Self.defaultOrigin(
-      contentSize: window.frame.size,
+    // Self.contentSize rather than window.frame.size: the panel is fixed-size,
+    // and its frame is still empty before SwiftUI has laid the view out, which
+    // would place the window flush against the screen corner.
+    window.setFrameOrigin(Self.restoredOrigin(
+      savedOrigin: Self.loadSavedOrigin(),
+      contentSize: Self.contentSize,
       visibleFrame: visibleFrame
     ))
+  }
+
+  static func loadSavedOrigin(
+    defaults: UserDefaults = .standard
+  ) -> NSPoint? {
+    guard let stored = defaults.string(forKey: ReloSettingsKeys.floatingCountdownOrigin) else {
+      return nil
+    }
+    return NSPointFromString(stored)
+  }
+
+  private func saveOrigin(_ origin: NSPoint, defaults: UserDefaults = .standard) {
+    defaults.set(NSStringFromPoint(origin), forKey: ReloSettingsKeys.floatingCountdownOrigin)
   }
 }
