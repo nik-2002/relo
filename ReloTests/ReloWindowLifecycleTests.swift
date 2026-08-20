@@ -224,6 +224,45 @@ final class MenuPanelTests: XCTestCase {
     ))
   }
 
+  func testFloatingDisplayReturnsToTheOriginItWasDraggedTo() {
+    let visibleFrame = NSRect(x: 0, y: 24, width: 1_440, height: 876)
+    let contentSize = NSSize(width: 110, height: 48)
+
+    // Never moved: falls back to the default corner.
+    XCTAssertEqual(
+      FloatingCountdownWindowController.restoredOrigin(
+        savedOrigin: nil,
+        contentSize: contentSize,
+        visibleFrame: visibleFrame
+      ),
+      FloatingCountdownWindowController.defaultOrigin(
+        contentSize: contentSize,
+        visibleFrame: visibleFrame
+      )
+    )
+
+    // Moved somewhere still on screen: comes back exactly there.
+    let dragged = NSPoint(x: 320, y: 500)
+    XCTAssertEqual(
+      FloatingCountdownWindowController.restoredOrigin(
+        savedOrigin: dragged,
+        contentSize: contentSize,
+        visibleFrame: visibleFrame
+      ),
+      dragged
+    )
+
+    // Saved against a screen that is no longer there: pulled back on screen.
+    let offscreen = NSPoint(x: 3_000, y: 2_000)
+    let restored = FloatingCountdownWindowController.restoredOrigin(
+      savedOrigin: offscreen,
+      contentSize: contentSize,
+      visibleFrame: visibleFrame
+    )
+    XCTAssertEqual(restored.x, visibleFrame.maxX - contentSize.width)
+    XCTAssertEqual(restored.y, visibleFrame.maxY - contentSize.height)
+  }
+
   func testFloatingDisplayDefaultsToUpperRightOfVisibleScreen() {
     let origin = FloatingCountdownWindowController.defaultOrigin(
       contentSize: NSSize(width: 110, height: 48),
