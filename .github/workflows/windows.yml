@@ -1,0 +1,36 @@
+name: Windows
+
+# The Windows port cannot be built or tested on the macOS machine this project
+# is developed on, so CI is the only verification it gets. Keep it fast and
+# keep it green.
+on:
+  push:
+    branches: ["windows-port"]
+    paths:
+      - "windows/**"
+      - ".github/workflows/windows.yml"
+  pull_request:
+    paths:
+      - "windows/**"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+
+jobs:
+  core:
+    name: Core logic (build + test)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore windows/Relo.sln
+
+      - name: Build
+        run: dotnet build windows/Relo.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test windows/Relo.sln --configuration Release --no-build --logger "console;verbosity=detailed"

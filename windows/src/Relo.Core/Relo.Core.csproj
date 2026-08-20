@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- Deliberately platform-neutral: the timer logic carries no Windows
+         dependency, so it can be built and tested on any runner. -->
+  </PropertyGroup>
+
+</Project>
