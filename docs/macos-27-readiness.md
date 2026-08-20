@@ -19,7 +19,7 @@ Relo is a macOS menu bar timer app. Apple currently documents macOS 27 as macOS 
 - App type: macOS menu bar app.
 - Current local Xcode: Xcode 27 beta.
 - Active validation SDK: macOS 27.
-- Deployment target: macOS 14.0.
+- Deployment target: macOS 15.0.
 - Swift language mode: Swift 5.
 - UI stack: AppKit status item and popover, SwiftUI views, SwiftUI settings scene.
 - Core runtime APIs: `NSStatusItem`, `NSPopover`, `NSHostingController`, `UserNotifications`, `AVAudioPlayer`, `SMAppService`, `Timer`, and Carbon hotkeys.

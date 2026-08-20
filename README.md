@@ -14,7 +14,7 @@ Super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch
 
 ## Requirements
 
-Requires macOS 14 or later.
+Requires macOS 15 or later.
 
 ## Installation
 

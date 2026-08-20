@@ -53,7 +53,7 @@ struct FloatingCountdownView: View {
     // consumes the mouse-down before AppKit's background drag can start, so the
     // window has to be dragged from inside SwiftUI. The close button keeps its
     // own clicks — a plain .gesture yields to controls.
-    .modifier(WindowDrag())
+    .gesture(WindowDragGesture())
   }
 
   /// The surface flips from black to white once the countdown has finished, so
@@ -105,18 +105,6 @@ struct FloatingCountdownView: View {
       from: [preset1, preset2, preset3]
     )
     return TimerPresetConfiguration.statusDisplayText(forPresetValue: largestPreset)
-  }
-}
-
-/// `WindowDragGesture` is macOS 15+. On macOS 14 the window stays put, the same
-/// as before — AppKit's own background drag cannot reach past the hosting view.
-private struct WindowDrag: ViewModifier {
-  func body(content: Content) -> some View {
-    if #available(macOS 15.0, *) {
-      content.gesture(WindowDragGesture())
-    } else {
-      content
-    }
   }
 }
 

@@ -1,6 +1,6 @@
 # Build, run, and debug environment
 
-Relo is a macOS 14+ menu-bar timer (SwiftUI + AppKit `NSStatusItem` + a custom
+Relo is a macOS 15+ menu-bar timer (SwiftUI + AppKit `NSStatusItem` + a custom
 borderless `NSPanel`). The development machine runs **macOS 27.0**, screen 1440×900
 points (scaled).
 
