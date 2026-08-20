@@ -2,41 +2,30 @@ import AppKit
 import AVFoundation
 import SwiftUI
 import UniformTypeIdentifiers
-import UserNotifications
+
+private final class TonePreviewDelegate: NSObject, AVAudioPlayerDelegate {
+  var didFinishPlaying: (() -> Void)?
+
+  func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+    didFinishPlaying?()
+  }
+}
 
 struct AlertSettingsSection: View {
   @AppStorage(ReloSettingsKeys.tone) private var selectedTone = NotificationTone.default.rawValue
   @AppStorage(ReloSettingsKeys.repeatCount) private var repeatCount = NotificationRepeatOption.default.rawValue
-  @AppStorage(ReloSettingsKeys.volume) private var selectedVolume = NotificationVolume.default.rawValue
+  @AppStorage(ReloSettingsKeys.volumeLevel) private var alarmVolume = AlarmVolume.defaultLevel
   @AppStorage(ReloSettingsKeys.playSound) private var playSound = true
-  @AppStorage(ReloSettingsKeys.showNotifications) private var showNotifications = false
   @State private var previewPlayer: AVAudioPlayer?
   @State private var previewPlayers: [String: AVAudioPlayer] = [:]
+  @State private var isPreviewing = false
+  @State private var tonePreviewDelegate = TonePreviewDelegate()
   @State private var importedTone: ImportedTone?
   @State private var toneImportError: String?
-  @State private var notificationError: String?
   private let importedToneStore = ImportedToneStore()
 
   var body: some View {
     Section("Alerts") {
-      Toggle("Show Notification", isOn: $showNotifications)
-        .onChange(of: showNotifications) { _, newValue in
-          handleShowNotificationsChange(newValue)
-        }
-
-      if let notificationError {
-        VStack(alignment: .leading, spacing: 4) {
-          Text(notificationError)
-            .font(.caption)
-            .foregroundStyle(.red)
-            .fixedSize(horizontal: false, vertical: true)
-          Button("Open Notification Settings") {
-            openNotificationSettings()
-          }
-          .controlSize(.small)
-        }
-      }
-
       Toggle("Play Sound", isOn: $playSound)
         .onChange(of: playSound) { _, enabled in
           if !enabled {
@@ -47,17 +36,13 @@ struct AlertSettingsSection: View {
       LabeledContent("Tone") {
         HStack(spacing: 6) {
           Picker("", selection: $selectedTone) {
-            Section("Relo Sounds") {
-              ForEach(NotificationTone.allCases) { tone in
-                Text(tone.displayName)
-                  .tag(tone.rawValue)
-              }
+            ForEach(NotificationTone.allCases) { tone in
+              Text(tone.displayName)
+                .tag(tone.rawValue)
             }
             if let importedTone {
-              Section("Imported") {
-                Text(importedTone.displayName)
-                  .tag(ImportedToneStore.selectionValue)
-              }
+              Text(importedTone.displayName)
+                .tag(ImportedToneStore.selectionValue)
             }
           }
           .labelsHidden()
@@ -66,14 +51,18 @@ struct AlertSettingsSection: View {
           .frame(width: 125)
 
           Button {
-            playPreviewTone(named: selectedTone)
+            if isPreviewing {
+              stopPreviewTone()
+            } else {
+              playPreviewTone(named: selectedTone)
+            }
           } label: {
-            Image(systemName: "play.fill")
+            Image(systemName: isPreviewing ? "stop.fill" : "play.fill")
           }
           .buttonStyle(.bordered)
           .controlSize(.small)
-          .help("Preview Tone")
-          .accessibilityLabel("Preview Tone")
+          .help(isPreviewing ? "Stop Preview" : "Preview Tone")
+          .accessibilityLabel(isPreviewing ? "Stop Preview" : "Preview Tone")
         }
       }
       .disabled(!playSound)
@@ -116,21 +105,32 @@ struct AlertSettingsSection: View {
       .pickerStyle(.menu)
       .disabled(!playSound)
 
-      Picker("Volume", selection: $selectedVolume) {
-        ForEach(NotificationVolume.allCases) { volume in
-          Text(volume.displayName)
-            .tag(volume.rawValue)
+      LabeledContent("Volume") {
+        HStack(spacing: 8) {
+          Image(systemName: "speaker.fill")
+            .foregroundStyle(.secondary)
+
+          Slider(value: $alarmVolume, in: 0...1)
+            .frame(width: 170)
+            .accessibilityLabel("Alarm Volume")
+
+          Image(systemName: "speaker.wave.3.fill")
+            .foregroundStyle(.secondary)
         }
       }
-      .focusEffectDisabled()
-      .pickerStyle(.menu)
       .disabled(!playSound)
     }
     .onAppear {
+      alarmVolume = AlarmVolume.migrateIfNeeded()
       preloadPreviewTones()
       importedTone = importedToneStore.current()
       validateSelectedTone()
-      refreshNotificationAuthorization()
+    }
+    .onChange(of: alarmVolume) { _, newValue in
+      previewPlayer?.volume = Float(AlarmVolume.clamped(newValue))
+    }
+    .onChange(of: selectedTone) { _, _ in
+      stopPreviewTone()
     }
     .onDisappear {
       stopPreviewTone()
@@ -162,12 +162,11 @@ struct AlertSettingsSection: View {
 
   private func playPreviewTone(named rawValue: String) {
     stopPreviewTone()
-    let volume = NotificationVolume(rawValue: selectedVolume) ?? .default
     let url: URL?
     if rawValue == ImportedToneStore.selectionValue {
       url = importedTone?.url
     } else if let tone = NotificationTone(rawValue: rawValue) {
-      url = Bundle.main.url(forResource: tone.rawValue, withExtension: "wav")
+      url = tone.audioURL
     } else {
       url = nil
     }
@@ -180,27 +179,37 @@ struct AlertSettingsSection: View {
       previewPlayer = player
     }
 
-    previewPlayer?.volume = volume.level
+    previewPlayer?.volume = Float(AlarmVolume.clamped(alarmVolume))
     previewPlayer?.currentTime = 0
-    previewPlayer?.play()
+    previewPlayer?.delegate = tonePreviewDelegate
+    tonePreviewDelegate.didFinishPlaying = {
+      DispatchQueue.main.async {
+        isPreviewing = false
+        previewPlayer = nil
+      }
+    }
+    isPreviewing = previewPlayer?.play() == true
   }
 
   private func stopPreviewTone() {
+    previewPlayer?.delegate = nil
     previewPlayer?.stop()
     previewPlayer?.currentTime = 0
     previewPlayer = nil
+    tonePreviewDelegate.didFinishPlaying = nil
+    isPreviewing = false
   }
 
   private func preloadPreviewTones() {
     guard previewPlayers.isEmpty else { return }
-    let tones = NotificationTone.allCases.map(\.rawValue)
+    let tones = NotificationTone.allCases
     DispatchQueue.global(qos: .userInitiated).async {
       var players: [String: AVAudioPlayer] = [:]
       for tone in tones {
-        guard let url = Bundle.main.url(forResource: tone, withExtension: "wav") else { continue }
+        guard let url = tone.audioURL else { continue }
         if let player = try? AVAudioPlayer(contentsOf: url) {
           player.prepareToPlay()
-          players[tone] = player
+          players[tone.rawValue] = player
         }
       }
       DispatchQueue.main.async {
@@ -266,65 +275,4 @@ struct AlertSettingsSection: View {
     }
   }
 
-  private func refreshNotificationAuthorization() {
-    guard showNotifications else { return }
-    let center = UNUserNotificationCenter.current()
-    center.getNotificationSettings { settings in
-      DispatchQueue.main.async {
-        switch settings.authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
-          notificationError = nil
-        case .notDetermined:
-          break
-        case .denied:
-          showNotifications = false
-          notificationError = "Notifications are disabled in System Settings."
-        @unknown default:
-          showNotifications = false
-          notificationError = "Notifications are unavailable."
-        }
-      }
-    }
-  }
-
-  private func handleShowNotificationsChange(_ enabled: Bool) {
-    guard enabled else {
-      notificationError = nil
-      return
-    }
-
-    let center = UNUserNotificationCenter.current()
-    center.getNotificationSettings { settings in
-      DispatchQueue.main.async {
-        switch settings.authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
-          notificationError = nil
-        case .notDetermined:
-          center.requestAuthorization(options: [.alert]) { granted, _ in
-            DispatchQueue.main.async {
-              if granted {
-                notificationError = nil
-              } else {
-                showNotifications = false
-                notificationError = "Notifications are disabled in System Settings."
-              }
-            }
-          }
-        case .denied:
-          showNotifications = false
-          notificationError = "Notifications are disabled in System Settings."
-        @unknown default:
-          showNotifications = false
-          notificationError = "Notifications are unavailable."
-        }
-      }
-    }
-  }
-
-  private func openNotificationSettings() {
-    guard let url = URL(
-      string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension"
-    ) else { return }
-    NSWorkspace.shared.open(url)
-  }
 }

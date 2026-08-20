@@ -8,66 +8,38 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
   static let settingsDidResignKeyNotification = Notification.Name("ReloSettingsDidResignKey")
 
   private(set) var window: NSWindow?
-  private let activatesApplication: Bool
-  private var demotionGeneration = 0
-  private static let demotionDelay: TimeInterval = 3
-
-  init(activatesApplication: Bool = true) {
-    self.activatesApplication = activatesApplication
-  }
 
   /// Order the Settings window on screen and attach its content, *without*
   /// taking key focus or activating the app.
   ///
-  /// Two things happen here, both while the caller keeps the popover live:
+  /// The window is ordered on screen with `orderFrontRegardless()` (no key
+  /// yet). Ordering on screen is the single step that broadcasts the "will
+  /// order on screen" notification the popover's stale text-completion remote
+  /// view can choke on (see `SettingsPresentationCoordinator`); doing it while
+  /// the popover is still live keeps that expectation non-null and safe.
   ///
-  /// 1. The app is promoted from `.accessory` to `.regular`. Relo normally runs
-  ///    as a menu-bar-only accessory, but on macOS 14+ `NSApp.activate` is
-  ///    deliberately weakened for accessory apps, so a Settings window would open
-  ///    *behind* the frontmost app and its controls wouldn't reliably take
-  ///    clicks. Becoming a regular foreground app for the lifetime of the window
-  ///    fixes that; `windowWillClose` reverts to `.accessory` so no Dock icon
-  ///    lingers. The promotion must land a runloop tick before `activate()` — the
-  ///    policy change has to register with the window server first.
-  /// 2. The window is ordered on screen with `orderFrontRegardless()` (no key
-  ///    yet). Ordering on screen is the single step that broadcasts the "will
-  ///    order on screen" notification the popover's stale text-completion remote
-  ///    view can choke on (see `SettingsPresentationCoordinator`); doing it while
-  ///    the popover is still live keeps that expectation non-null and safe.
+  /// Relo remains an accessory app throughout this flow. Settings is a titled,
+  /// non-activating `NSPanel`: it can become key from the already-key menu panel
+  /// without trying to activate the whole application. It is deliberately not
+  /// transient, so it still participates in Mission Control while `LSUIElement`
+  /// keeps Relo out of the Dock.
   func orderOnScreen() {
-    if activatesApplication {
-      // Cancel any pending demotion from a recent close (see windowWillClose)
-      // so a quick reopen doesn't flip the policy accessory -> regular -> ...
-      // in a burst. macOS's focus-stealing heuristic appears to throttle
-      // `NSApp.activate(ignoringOtherApps:)` after repeated activation-policy
-      // toggling in a short window, silently making the call a no-op even
-      // though the policy change and window creation both still succeed.
-      demotionGeneration &+= 1
-      NSApp.setActivationPolicy(.regular)
-    }
     let window = ensureWindow()
     centerWindow(window)
     if window.isMiniaturized {
       window.deminiaturize(nil)
     }
-    window.orderFrontRegardless()
     if window.contentViewController == nil {
       window.contentViewController = NSHostingController(rootView: ReloSettingsView())
     }
+    window.orderFrontRegardless()
   }
 
-  /// Bring the (now regular, already-on-screen) app and Settings window fully
-  /// forward and give the window key focus. Called on the runloop tick *after*
-  /// `orderOnScreen()` so the `.regular` promotion has registered — a synchronous
-  /// activate right after the policy change is a no-op. The popover is still live
-  /// at this point, so `makeKeyAndOrderFront` cannot re-trigger the remote-view
-  /// assertion.
+  /// Bring the already-on-screen Settings panel forward and give it key focus.
+  /// The popover is still live at this point, so `makeKeyAndOrderFront` cannot
+  /// re-trigger the remote-view assertion.
   func activate() {
     guard let window else { return }
-    if activatesApplication {
-      NSApp.unhide(nil)
-      NSApp.activate(ignoringOtherApps: true)
-    }
     window.makeKeyAndOrderFront(nil)
     window.orderFrontRegardless()
   }
@@ -82,12 +54,17 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
       return window
     }
 
-    let window = NSWindow(
+    let window = NSPanel(
       contentRect: NSRect(x: 0, y: 0, width: 460, height: 320),
-      styleMask: [.titled, .closable, .miniaturizable, .resizable],
+      styleMask: [.titled, .closable, .miniaturizable, .resizable, .nonactivatingPanel],
       backing: .buffered,
       defer: false
     )
+    window.level = .floating
+    window.isFloatingPanel = true
+    window.hidesOnDeactivate = false
+    window.becomesKeyOnlyIfNeeded = false
+    window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
     window.title = ""
     window.contentMinSize = NSSize(width: 460, height: 260)
     window.standardWindowButton(.miniaturizeButton)?.isEnabled = false
@@ -121,21 +98,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
       closingWindow.makeFirstResponder(nil)
       closingWindow.contentViewController = nil
       window = nil
-      // Drop back to the menu-bar-only accessory policy that `orderOnScreen()`
-      // promoted away from, so the Dock icon doesn't linger after Settings
-      // closes — but only after a short delay, and only if Settings hasn't
-      // been reopened in the meantime (orderOnScreen bumps the generation to
-      // cancel this). An immediate revert means a quick close-then-reopen
-      // cycle toggles the policy accessory -> regular right back, which is
-      // the pattern that seems to trigger macOS's activation throttle.
-      if activatesApplication {
-        demotionGeneration &+= 1
-        let generation = demotionGeneration
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.demotionDelay) { [weak self] in
-          guard let self, self.demotionGeneration == generation else { return }
-          NSApp.setActivationPolicy(.accessory)
-        }
-      }
     }
     NotificationCenter.default.post(name: Self.settingsWillCloseNotification, object: nil)
   }

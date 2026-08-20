@@ -37,7 +37,9 @@ final class RecorderContainerView: NSView {
   override func layout() {
     super.layout()
     recorder.layer?.cornerCurve = .continuous
-    recorder.layer?.cornerRadius = recorder.bounds.height / 2
+    recorder.layer?.cornerRadius = ReloGeometry.capsuleRadius(
+      forHeight: recorder.bounds.height
+    )
     recorder.layer?.borderColor = borderColor().cgColor
   }
 

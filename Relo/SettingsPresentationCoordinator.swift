@@ -20,17 +20,10 @@ enum SettingsPresentationCoordinator {
   /// still live. The sole "will order on screen" notification then fires against
   /// a non-null expectation and is simply ignored.
   ///
-  /// `orderSettingsOnScreen()` also promotes the app from `.accessory` to
-  /// `.regular` (see `SettingsWindowController`). That policy change needs a
-  /// runloop tick to register with the window server, so activation is deferred
-  /// to the next turn — a synchronous activate would be a no-op and Settings
-  /// would open behind the frontmost app with unresponsive controls.
-  ///
-  /// On that next turn we activate *before* removing the popover: if the popover
-  /// were dismissed first and Settings activated second, the window would be
-  /// briefly visible but not yet key, and clicks on its controls in that gap
-  /// would be lost. The popover stays live through activation (still crash-safe),
-  /// and by the time it is removed Settings is already the active key window.
+  /// We make the non-activating Settings panel key immediately after ordering it,
+  /// while the popover is still live. Only the menu dismissal is deferred. This
+  /// avoids a runloop gap where the fading child menu can reclaim key-window status.
+  /// No application-level activation or activation-policy change is involved.
   static func present(
     dismissMenu: @escaping Action,
     orderSettingsOnScreen: @escaping Action = { @MainActor in
@@ -46,8 +39,8 @@ enum SettingsPresentationCoordinator {
     }
   ) {
     orderSettingsOnScreen()
+    activateSettings()
     schedule {
-      activateSettings()
       dismissMenu()
     }
   }

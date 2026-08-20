@@ -3,7 +3,9 @@ import Foundation
 enum ReloSettingsKeys {
   static let tone = "notificationTone"
   static let repeatCount = "notificationRepeatCount"
+  // Retained only to migrate the former Very Low/Low/Medium/High setting.
   static let volume = "notificationVolume"
+  static let volumeLevel = "notificationVolumeLevel"
   static let playSound = "playSound"
   static let defaultUnit = "defaultTimeUnit"
   static let openHotkey = "hotkeyOpen"
@@ -11,7 +13,6 @@ enum ReloSettingsKeys {
   static let clearHotkey = "hotkeyClear"
   static let unifiedHotkeyStorage = "unifiedHotkeyStorageV1"
   static let didPromptLoginItem = "didPromptLoginItem"
-  static let showNotifications = "showNotifications"
   static let importedToneFileName = "importedToneFileName"
   static let importedToneDisplayName = "importedToneDisplayName"
   static let timerPreset1 = "timerPreset1"
@@ -19,10 +20,12 @@ enum ReloSettingsKeys {
   static let timerPreset3 = "timerPreset3"
   static let timerPreset4 = "timerPreset4"
   static let timerPresetDefaultsVersion = "timerPresetDefaultsVersion"
+  static let floatingCountdownDisplayEnabled = "floatingCountdownDisplayEnabled"
 }
 
 enum NotificationTone: String, CaseIterable, Identifiable {
-  case alarmFrenzy = "alarm-frenzy"
+  case bedsideClock = "bedside-clock"
+  case digitalTone = "digital-tone"
   case discreet
   case joyousChime = "joyous-chime"
   case wakeUp = "wake-up"
@@ -33,8 +36,10 @@ enum NotificationTone: String, CaseIterable, Identifiable {
 
   var displayName: String {
     switch self {
-    case .alarmFrenzy:
-      return "Alarm Frenzy"
+    case .bedsideClock:
+      return "Bedside Clock"
+    case .digitalTone:
+      return "Digital Tone"
     case .discreet:
       return "Discreet"
     case .joyousChime:
@@ -42,6 +47,19 @@ enum NotificationTone: String, CaseIterable, Identifiable {
     case .wakeUp:
       return "Wake Up"
     }
+  }
+
+  var fileExtension: String {
+    switch self {
+    case .bedsideClock, .digitalTone:
+      return "mp3"
+    case .discreet, .joyousChime, .wakeUp:
+      return "wav"
+    }
+  }
+
+  var audioURL: URL? {
+    Bundle.main.url(forResource: rawValue, withExtension: fileExtension)
   }
 }
 
@@ -82,30 +100,13 @@ enum NotificationRepeatOption: Int, CaseIterable, Identifiable {
   }
 }
 
-enum NotificationVolume: String, CaseIterable, Identifiable {
+enum LegacyNotificationVolume: String {
   case ultraLow = "ultra-low"
   case low
   case medium
   case high
 
-  static let `default` = NotificationVolume.medium
-
-  var id: String { rawValue }
-
-  var displayName: String {
-    switch self {
-    case .ultraLow:
-      return "Very Low"
-    case .low:
-      return "Low"
-    case .medium:
-      return "Medium"
-    case .high:
-      return "High"
-    }
-  }
-
-  var level: Float {
+  var level: Double {
     switch self {
     case .ultraLow:
       return 0.2
@@ -116,6 +117,32 @@ enum NotificationVolume: String, CaseIterable, Identifiable {
     case .high:
       return 1.0
     }
+  }
+}
+
+enum AlarmVolume {
+  static let defaultLevel = 0.7
+
+  static func load(defaults: UserDefaults = .standard) -> Double {
+    if let storedLevel = defaults.object(forKey: ReloSettingsKeys.volumeLevel) as? NSNumber {
+      return clamped(storedLevel.doubleValue)
+    }
+
+    let legacyValue = defaults.string(forKey: ReloSettingsKeys.volume)
+    return LegacyNotificationVolume(rawValue: legacyValue ?? "")?.level ?? defaultLevel
+  }
+
+  @discardableResult
+  static func migrateIfNeeded(defaults: UserDefaults = .standard) -> Double {
+    let level = load(defaults: defaults)
+    if defaults.object(forKey: ReloSettingsKeys.volumeLevel) == nil {
+      defaults.set(level, forKey: ReloSettingsKeys.volumeLevel)
+    }
+    return level
+  }
+
+  static func clamped(_ level: Double) -> Double {
+    min(max(level, 0), 1)
   }
 }
 
@@ -231,11 +258,42 @@ enum TimerPresetConfiguration {
     return minutes.map(value(forMinutes:))
   }
 
+  static func largestPresetValue(from values: [String]) -> String {
+    resolvedValues(from: values).max { first, second in
+      (minutes(from: first) ?? 0) < (minutes(from: second) ?? 0)
+    } ?? defaultValues[2]
+  }
+
+  static func largestStoredPresetValue(defaults: UserDefaults = .standard) -> String {
+    largestPresetValue(from: storedValues(defaults: defaults))
+  }
+
+  static func statusDisplayText(forPresetValue value: String) -> String {
+    let minutes = minutes(from: value) ?? 25
+    let hours = minutes / 60
+    let remainingMinutes = minutes % 60
+    if hours > 0 {
+      return String(format: "%02d:%02d:00", hours, remainingMinutes)
+    }
+    return String(format: "%02d:00", minutes)
+  }
+
+  static func idleStatusDisplayText(defaults: UserDefaults = .standard) -> String {
+    statusDisplayText(forPresetValue: largestStoredPresetValue(defaults: defaults))
+  }
+
   static func minutes(from value: String) -> Int? {
     guard value.hasSuffix("m"),
           let minutes = Int(value.dropLast()),
           minuteRange.contains(minutes) else { return nil }
     return minutes
+  }
+
+  static func minutes(fromUserInput input: String) -> Int? {
+    guard !input.isEmpty,
+          input.unicodeScalars.allSatisfy({ (48...57).contains($0.value) }),
+          let minutes = Int(input) else { return nil }
+    return clampedMinutes(minutes)
   }
 
   static func value(forMinutes minutes: Int) -> String {
@@ -281,38 +339,6 @@ enum TimerPresetConfiguration {
     let resolvedValues = resolvedValues(from: values)
     for (key, value) in zip(keys, resolvedValues) {
       defaults.set(value, forKey: key)
-    }
-  }
-}
-
-final class PresetMinutesFormatter: Formatter {
-  override func string(for obj: Any?) -> String? {
-    if let value = obj as? Int {
-      return "\(value)"
-    }
-    if let value = obj as? NSNumber {
-      return value.stringValue
-    }
-    return nil
-  }
-
-  override func getObjectValue(
-    _ obj: AutoreleasingUnsafeMutablePointer<AnyObject?>?,
-    for string: String,
-    errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
-  ) -> Bool {
-    guard let value = Int(string) else { return false }
-    obj?.pointee = NSNumber(value: value)
-    return true
-  }
-
-  override func isPartialStringValid(
-    _ partialString: String,
-    newEditingString newString: AutoreleasingUnsafeMutablePointer<NSString?>?,
-    errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
-  ) -> Bool {
-    partialString.unicodeScalars.allSatisfy { scalar in
-      (48...57).contains(scalar.value)
     }
   }
 }
@@ -401,7 +427,7 @@ enum AlarmTone: Equatable {
   var audioURL: URL? {
     switch self {
     case .bundled(let tone):
-      return Bundle.main.url(forResource: tone.rawValue, withExtension: "wav")
+      return tone.audioURL
     case .imported(let tone):
       return tone.url
     }
@@ -431,14 +457,13 @@ struct AlarmConfiguration {
     let repeatOption = NotificationRepeatOption(
       rawValue: storedRepeatCount ?? NotificationRepeatOption.default.rawValue
     ) ?? .default
-    let volumeRawValue = defaults.string(forKey: ReloSettingsKeys.volume)
-    let volume = NotificationVolume(rawValue: volumeRawValue ?? "") ?? .default
+    let volume = AlarmVolume.load(defaults: defaults)
 
     return AlarmConfiguration(
       playsSound: playsSound,
       tone: tone,
       repeatLimit: repeatOption.repeatLimit,
-      volume: volume.level
+      volume: Float(volume)
     )
   }
 }

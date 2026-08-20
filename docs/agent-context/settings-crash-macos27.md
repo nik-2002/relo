@@ -7,6 +7,11 @@ Note: this is a *different* problem from the open Settings bug in `HANDOFF.md`. 
 was a hard crash; the open one is a silent failure to activate. Part 2 of this fix is
 what introduced the activation-policy toggling that the open bug now suspects.
 
+Update 2026-08-12: the current working tree retains the crash-safe ordering from part
+1 but removes application activation and activation-policy toggling from part 2. Relo
+now remains an accessory app and hands key focus directly from the menu panel to a
+titled, non-activating Settings panel.
+
 ## Symptom
 
 Opening Settings while, or just after, the popover was shown crashed with SIGABRT. The
