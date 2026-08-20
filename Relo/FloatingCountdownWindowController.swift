@@ -20,6 +20,23 @@ private final class FloatingCountdownPanel: NSPanel {
   }
 }
 
+/// Relo is an accessory app and this panel is non-activating, so a click on it
+/// arrives as a "first mouse" event. `NSHostingView` refuses those by default,
+/// which swallowed the first click on the window — including the start of a drag.
+@MainActor
+private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+  required init(rootView: Content) {
+    super.init(rootView: rootView)
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+}
+
 @MainActor
 final class FloatingCountdownWindowController: NSObject {
   static let contentSize = NSSize(width: 110, height: 48)
@@ -242,7 +259,7 @@ final class FloatingCountdownWindowController: NSObject {
     window.isReleasedWhenClosed = false
     window.animationBehavior = .none
     window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-    window.contentViewController = NSHostingController(
+    window.contentView = FirstMouseHostingView(
       rootView: FloatingCountdownView(model: model) { [weak self] in
         self?.dismiss()
       }
