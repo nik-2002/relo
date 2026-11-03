@@ -23,6 +23,25 @@ The About panel credits `Nico Estreba` as primary author and the upstream projec
 `Tock by Michael Edelstone · MIT License`. Relo is alarm-only at timer completion; the
 notification feature and UserNotifications dependency were removed in August.
 
+## Reminders focus (1.2, build 4)
+
+A timer can be committed to an open Apple Reminders task. The menu card has one
+"for a reminder…" line (`ReminderFocusRow`) that opens a native menu of incomplete
+reminders grouped by list. The linked task shows on the menu card and under the digits
+in the floating countdown, which grows from 48 to 62 pt with its top edge fixed. When a
+countdown finishes, the line becomes **done** (marks the reminder completed in Reminders
+and clears the link) / **not yet** (dismisses, keeps the link). A reminder completed or
+deleted in Reminders itself is unlinked on the next refresh (`EKEventStoreChanged`).
+Logic lives in `ReminderFocus.swift` behind a `ReminderSource` protocol; tests use a fake.
+
+Signing changed with this release: builds are now signed with the user's free personal
+team "Apple Development" certificate, so the Reminders permission survives updates. The
+Release build carries `com.apple.security.personal-information.calendars`, which is the
+sandbox entitlement that covers Reminders.
+
+Not yet verified by a human: the Reminders permission prompt, the picker, and done /
+not yet in the real app.
+
 ## Open items
 
 1. **Settings panel verification.** On 2026-08-12 Settings was changed to a titled,

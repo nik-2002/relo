@@ -13,6 +13,8 @@
 		AAAABBBB0000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 55555555000000000000000B /* Assets.xcassets */; };
 		AAAABBBB0000000000000017 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 131313130000000000000013 /* AppDelegate.swift */; };
 		AAAABBBB0000000000000018 /* MenuDismissAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 141414140000000000000014 /* MenuDismissAction.swift */; };
+		A70000000000000000000001 /* ReminderFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000002 /* ReminderFocus.swift */; };
+		A70000000000000000000003 /* ReminderFocusRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000004 /* ReminderFocusRow.swift */; };
 		AAAABBBB0000000000000020 /* ReloSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 161616160000000000000016 /* ReloSettings.swift */; };
 		AAAABBBB0000000000000021 /* ReloSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171717170000000000000017 /* ReloSettingsView.swift */; };
 		AAAABBBB0000000000000041 /* Sounds/bedside-clock.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 2B2B2B2B000000000000002B /* Sounds/bedside-clock.mp3 */; };
@@ -40,6 +42,7 @@
 		B10000000000000000000010 /* ReloGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000010 /* ReloGeometry.swift */; };
 		D10000000000000000000001 /* ReloWindowLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* ReloWindowLifecycleTests.swift */; };
 		E10000000000000000000001 /* ReloModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* ReloModelTests.swift */; };
+		A70000000000000000000005 /* ReminderFocusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000006 /* ReminderFocusTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,6 +58,8 @@
 /* Begin PBXFileReference section */
 		131313130000000000000013 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		141414140000000000000014 /* MenuDismissAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuDismissAction.swift; sourceTree = "<group>"; };
+		A70000000000000000000002 /* ReminderFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderFocus.swift; sourceTree = "<group>"; };
+		A70000000000000000000004 /* ReminderFocusRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderFocusRow.swift; sourceTree = "<group>"; };
 		161616160000000000000016 /* ReloSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloSettings.swift; sourceTree = "<group>"; };
 		171717170000000000000017 /* ReloSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloSettingsView.swift; sourceTree = "<group>"; };
 		191919190000000000000019 /* Sounds/discreet.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Sounds/discreet.wav; sourceTree = "<group>"; };
@@ -85,6 +90,7 @@
 		C20000000000000000000007 /* SettingsPresentationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPresentationCoordinator.swift; sourceTree = "<group>"; };
 		D20000000000000000000001 /* ReloWindowLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloWindowLifecycleTests.swift; sourceTree = "<group>"; };
 		E20000000000000000000001 /* ReloModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloModelTests.swift; sourceTree = "<group>"; };
+		A70000000000000000000006 /* ReminderFocusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderFocusTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000001 /* FloatingCountdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingCountdownView.swift; sourceTree = "<group>"; };
 		F20000000000000000000002 /* FloatingCountdownWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingCountdownWindowController.swift; sourceTree = "<group>"; };
 		B20000000000000000000010 /* ReloGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloGeometry.swift; sourceTree = "<group>"; };
@@ -135,6 +141,8 @@
 				2A2A2A2A000000000000002A /* KeyboardShortcutsRecorderRepresentable.swift */,
 				1D1D1D1D000000000000001D /* SettingsWindowController.swift */,
 				141414140000000000000014 /* MenuDismissAction.swift */,
+				A70000000000000000000002 /* ReminderFocus.swift */,
+				A70000000000000000000004 /* ReminderFocusRow.swift */,
 				2B2B2B2B000000000000002B /* Sounds/bedside-clock.mp3 */,
 				2C2C2C2C000000000000002C /* Sounds/digital-tone.mp3 */,
 				191919190000000000000019 /* Sounds/discreet.wav */,
@@ -170,6 +178,7 @@
 				A10000000000000000000004 /* ReloTimerParserTests.swift */,
 				D20000000000000000000001 /* ReloWindowLifecycleTests.swift */,
 				E20000000000000000000001 /* ReloModelTests.swift */,
+				A70000000000000000000006 /* ReminderFocusTests.swift */,
 			);
 			path = ReloTests;
 			sourceTree = "<group>";
@@ -297,6 +306,8 @@
 				AAAABBBB000000000000003A /* KeyboardShortcutsRecorderRepresentable.swift in Sources */,
 				AAAABBBB0000000000000027 /* SettingsWindowController.swift in Sources */,
 				AAAABBBB0000000000000018 /* MenuDismissAction.swift in Sources */,
+				A70000000000000000000001 /* ReminderFocus.swift in Sources */,
+				A70000000000000000000003 /* ReminderFocusRow.swift in Sources */,
 				C10000000000000000000001 /* GeneralSettingsSection.swift in Sources */,
 				C10000000000000000000002 /* TimerPresetSettingsSection.swift in Sources */,
 				C10000000000000000000003 /* AlertSettingsSection.swift in Sources */,
@@ -316,6 +327,7 @@
 				A10000000000000000000003 /* ReloTimerParserTests.swift in Sources */,
 				D10000000000000000000001 /* ReloWindowLifecycleTests.swift in Sources */,
 				E10000000000000000000001 /* ReloModelTests.swift in Sources */,
+				A70000000000000000000005 /* ReminderFocusTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -435,13 +447,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = ZV8Y3893Y7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Relo/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nicoestreba.relo;
 				PRODUCT_NAME = Relo;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -457,7 +469,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = ZV8Y3893Y7;
@@ -467,7 +479,7 @@
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = YES;
 				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
@@ -475,7 +487,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				INFOPLIST_FILE = Relo/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nicoestreba.relo;
 				PRODUCT_NAME = Relo;
 				PROVISIONING_PROFILE_SPECIFIER = "";

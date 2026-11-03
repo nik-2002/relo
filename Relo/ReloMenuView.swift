@@ -105,6 +105,9 @@ struct ReloMenuView: View {
         }
       }
 
+      ReminderFocusRow()
+        .padding(.horizontal, 2)
+
       HStack(spacing: 5) {
         ForEach(timerPresets) { preset in
           Button {

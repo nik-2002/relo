@@ -22,6 +22,10 @@
 	<true/>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Relo shows your open reminders so you can choose one to work on during a timer, and marks it completed when you say it's done.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Relo shows your open reminders so you can choose one to work on during a timer, and marks it completed when you say it's done.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Nico Estreba · Based on Tock by Michael Edelstone · MIT License</string>
 </dict>

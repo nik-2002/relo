@@ -40,6 +40,12 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
 @MainActor
 final class FloatingCountdownWindowController: NSObject {
   static let contentSize = NSSize(width: 110, height: 48)
+  /// Taller variant with room for the linked reminder's title under the digits.
+  static let linkedReminderContentSize = NSSize(width: 110, height: 62)
+
+  static func contentSize(hasLinkedReminder: Bool) -> NSSize {
+    hasLinkedReminder ? linkedReminderContentSize : contentSize
+  }
 
   /// The window is not tied to the timer's state: once the display is enabled
   /// it stays on screen through running, finished, and idle alike. Only the
@@ -121,9 +127,20 @@ final class FloatingCountdownWindowController: NSObject {
   )
   private var isDismissed = false
   private var isPlacingWindow = false
+  private var currentContentSize = FloatingCountdownWindowController.contentSize
+  private weak var reminderFocus: ReminderFocusStore?
 
-  func observe(_ model: ReloModel) {
+  func observe(_ model: ReloModel, reminderFocus: ReminderFocusStore) {
     self.model = model
+    self.reminderFocus = reminderFocus
+    reminderFocus.$linkedReminder
+      .map { $0 != nil }
+      .removeDuplicates()
+      .sink { [weak self] hasLinkedReminder in
+        self?.resize(to: Self.contentSize(hasLinkedReminder: hasLinkedReminder))
+      }
+      .store(in: &cancellables)
+
     Publishers.CombineLatest4(model.$isRunning, model.$isPaused, model.$isFinished, model.$mode)
       .sink { [weak self, weak model] isRunning, _, isFinished, _ in
         guard let self, let model else { return }
@@ -244,11 +261,27 @@ final class FloatingCountdownWindowController: NSObject {
     }
   }
 
+  /// Grows or shrinks the panel while keeping its top edge in place, so the
+  /// digits stay where the user put them.
+  private func resize(to size: NSSize) {
+    guard size != currentContentSize else { return }
+    currentContentSize = size
+    guard let window else { return }
+    let frame = window.frame
+    window.setFrame(
+      NSRect(x: frame.minX, y: frame.maxY - size.height, width: size.width, height: size.height),
+      display: true
+    )
+  }
+
   private func ensureWindow(model: ReloModel) -> NSPanel {
     if let window { return window }
+    guard let reminderFocus else {
+      preconditionFailure("observe(_:reminderFocus:) must be called before showing the window")
+    }
 
     let window = FloatingCountdownPanel(
-      contentRect: NSRect(origin: .zero, size: Self.contentSize),
+      contentRect: NSRect(origin: .zero, size: currentContentSize),
       styleMask: [.borderless, .nonactivatingPanel],
       backing: .buffered,
       defer: false
@@ -264,7 +297,7 @@ final class FloatingCountdownWindowController: NSObject {
     window.animationBehavior = .none
     window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
     window.contentView = FirstMouseHostingView(
-      rootView: FloatingCountdownView(model: model) { [weak self] in
+      rootView: FloatingCountdownView(model: model, reminderFocus: reminderFocus) { [weak self] in
         self?.dismiss()
       }
     )
@@ -282,12 +315,12 @@ final class FloatingCountdownWindowController: NSObject {
 
   private func placeWindowAtRestoredOrigin(_ window: NSWindow) {
     guard let visibleFrame = NSScreen.main?.visibleFrame ?? window.screen?.visibleFrame else { return }
-    // Self.contentSize rather than window.frame.size: the panel is fixed-size,
-    // and its frame is still empty before SwiftUI has laid the view out, which
-    // would place the window flush against the screen corner.
+    // The tracked content size rather than window.frame.size: the frame is
+    // still empty before SwiftUI has laid the view out, which would place the
+    // window flush against the screen corner.
     window.setFrameOrigin(Self.restoredOrigin(
       savedOrigin: Self.loadSavedOrigin(),
-      contentSize: Self.contentSize,
+      contentSize: currentContentSize,
       visibleFrame: visibleFrame
     ))
   }

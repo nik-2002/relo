@@ -22,6 +22,7 @@ enum ReloSettingsKeys {
   static let timerPresetDefaultsVersion = "timerPresetDefaultsVersion"
   static let floatingCountdownDisplayEnabled = "floatingCountdownDisplayEnabled"
   static let floatingCountdownOrigin = "floatingCountdownOrigin"
+  static let linkedReminder = "linkedReminder"
 }
 
 nonisolated enum NotificationTone: String, CaseIterable, Identifiable {

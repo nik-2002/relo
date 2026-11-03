@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FloatingCountdownView: View {
   @ObservedObject var model: ReloModel
+  @ObservedObject var reminderFocus: ReminderFocusStore
   let close: () -> Void
 
   @State private var isHovering = false
@@ -24,8 +25,20 @@ struct FloatingCountdownView: View {
             .stroke(borderColor, lineWidth: 0.5)
         }
 
-      countdownText
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+      VStack(spacing: 1) {
+        countdownText
+
+        if let linked = reminderFocus.linkedReminder {
+          Text(linked.title)
+            .font(.system(size: 10.5, weight: .medium))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .foregroundStyle(contentColor.opacity(0.6))
+            .padding(.horizontal, 10)
+            .accessibilityLabel("Working on \(linked.title)")
+        }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
 
       Button(action: close) {
         Image(systemName: "xmark")
@@ -40,8 +53,7 @@ struct FloatingCountdownView: View {
       .padding(2)
       .accessibilityLabel("Hide floating countdown")
     }
-    .frame(width: FloatingCountdownWindowController.contentSize.width,
-           height: FloatingCountdownWindowController.contentSize.height)
+    .frame(width: contentSize.width, height: contentSize.height)
     .contentShape(
       RoundedRectangle(
         cornerRadius: ReloGeometry.floatingSurfaceRadius,
@@ -54,6 +66,12 @@ struct FloatingCountdownView: View {
     // window has to be dragged from inside SwiftUI. The close button keeps its
     // own clicks — a plain .gesture yields to controls.
     .gesture(WindowDragGesture())
+  }
+
+  private var contentSize: NSSize {
+    FloatingCountdownWindowController.contentSize(
+      hasLinkedReminder: reminderFocus.linkedReminder != nil
+    )
   }
 
   /// The surface flips from black to white once the countdown has finished, so

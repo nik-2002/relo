@@ -9,13 +9,15 @@
 
 ## Build Quickstart
 
-Xcode 27.2 at `/Applications/Xcode.app` is the active toolchain. No Apple signing
-certificate is installed, so local builds are ad-hoc signed:
+Xcode 27.2 at `/Applications/Xcode.app` is the active toolchain. Builds are signed
+automatically with the free personal-team "Apple Development" certificate (team
+`ZV8Y3893Y7`). Keep that signing: macOS ties the Reminders permission to it, and an
+ad-hoc build would make macOS ask for access again.
 
 ```sh
-xcodebuild -project Relo.xcodeproj -scheme Relo -configuration Debug \
+xcodebuild -project Relo.xcodeproj -scheme Relo -configuration Release \
   -destination 'platform=macOS' -derivedDataPath "$HOME/Library/Caches/relo-dd" \
-  CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= build
+  -allowProvisioningUpdates build
 ```
 
 ## Repo Layout

@@ -39,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private let menuPanel = MenuPanel()
   private let secondaryMenuPanel = SecondaryMenuPanel()
   private let model = ReloModel()
+  private let reminderFocus = ReminderFocusStore()
   private let floatingCountdownWindowController = FloatingCountdownWindowController()
   private lazy var hotkeyManager = GlobalHotkeyManager { [weak self] action in
     self?.handleHotkeyAction(action)
@@ -155,7 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     configureMenuPanel()
     configureStatusItem()
     bindModel()
-    floatingCountdownWindowController.observe(model)
+    floatingCountdownWindowController.observe(model, reminderFocus: reminderFocus)
     updateStatusItem()
     configureHotkeys()
     DispatchQueue.main.async { [weak self] in
@@ -209,6 +210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     let view = ReloMenuView(usesSystemPopoverSurface: usesNativeGlass)
       .environmentObject(model)
+      .environmentObject(reminderFocus)
       .environment(\.menuDismiss, MenuDismissAction { [weak self] in
         self?.dismissMenuPanels()
       })

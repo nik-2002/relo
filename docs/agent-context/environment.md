@@ -7,12 +7,24 @@ points (scaled).
 ## Building — read this first
 
 The active toolchain is **Xcode 27.2** (`xcode-select -p` →
-`/Applications/Xcode.app/Contents/Developer`). The old Xcode beta is gone. No Apple
-signing certificate is in the keychain, so override signing to ad-hoc, and keep derived
-data and `TMPDIR` on the internal SSD (see the storage rule in `AGENTS.md`):
+`/Applications/Xcode.app/Contents/Developer`). The old Xcode beta is gone. Keep derived
+data and `TMPDIR` on the internal SSD (see the storage rule in `AGENTS.md`).
+
+Signing: the user's Apple ID is in Xcode → Settings → Accounts, and Xcode created a free
+"Apple Development" certificate for personal team `ZV8Y3893Y7` on 2026-11-03. Builds
+that will be installed must use it (automatic signing, `-allowProvisioningUpdates`).
+macOS ties the Reminders permission to the signing identity, so an ad-hoc build would
+make macOS ask for access again.
 
 ```sh
 DD="$HOME/Library/Caches/relo-dd"
+xcodebuild -project Relo.xcodeproj -scheme Relo -configuration Release \
+  -destination 'platform=macOS' -derivedDataPath "$DD" -allowProvisioningUpdates build
+```
+
+For test builds only, ad-hoc signing is fine and avoids touching provisioning:
+
+```sh
 xcodebuild -project Relo.xcodeproj -scheme Relo -configuration Debug \
   -destination 'platform=macOS' -derivedDataPath "$DD" \
   CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= build-for-testing
