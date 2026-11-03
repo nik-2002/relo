@@ -325,7 +325,7 @@ extension ReloMenuView {
   }
 }
 
-private extension View {
+extension View {
   /// The primary floating "navigation layer" surface: frosted material with a
   /// hairline stroke. Deliberately does NOT use `.glassEffect` — this panel is
   /// a bespoke borderless, non-activating NSPanel at `.popUpMenu` level with a

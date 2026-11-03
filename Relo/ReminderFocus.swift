@@ -10,6 +10,114 @@ nonisolated struct FocusReminder: Identifiable, Hashable, Codable, Sendable {
   var title: String
   var listTitle: String
   var dueDate: Date?
+  /// False for all-day reminders, whose due date carries no meaningful time.
+  var dueIncludesTime = false
+  /// The Reminders list colour as sRGB components.
+  var listColor: ListColor?
+
+  init(
+    id: String,
+    title: String,
+    listTitle: String,
+    dueDate: Date? = nil,
+    dueIncludesTime: Bool = false,
+    listColor: ListColor? = nil
+  ) {
+    self.id = id
+    self.title = title
+    self.listTitle = listTitle
+    self.dueDate = dueDate
+    self.dueIncludesTime = dueIncludesTime
+    self.listColor = listColor
+  }
+
+  // Links saved by 1.2 predate the colour and time fields.
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(String.self, forKey: .id)
+    title = try container.decode(String.self, forKey: .title)
+    listTitle = try container.decode(String.self, forKey: .listTitle)
+    dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
+    dueIncludesTime = try container.decodeIfPresent(Bool.self, forKey: .dueIncludesTime) ?? false
+    listColor = try container.decodeIfPresent(ListColor.self, forKey: .listColor)
+  }
+}
+
+nonisolated struct ListColor: Hashable, Codable, Sendable {
+  var red: Double
+  var green: Double
+  var blue: Double
+
+  init(red: Double, green: Double, blue: Double) {
+    self.red = red
+    self.green = green
+    self.blue = blue
+  }
+
+  init?(_ color: NSColor?) {
+    guard let srgb = color?.usingColorSpace(.sRGB) else { return nil }
+    self.init(
+      red: Double(srgb.redComponent),
+      green: Double(srgb.greenComponent),
+      blue: Double(srgb.blueComponent)
+    )
+  }
+}
+
+/// How a due date reads in the picker, following Reminders' own wording.
+nonisolated struct ReminderDueLabel: Equatable, Sendable {
+  let text: String
+  let isOverdue: Bool
+
+  static func make(
+    for reminder: FocusReminder,
+    now: Date = Date(),
+    calendar: Calendar = .current,
+    locale: Locale = .current
+  ) -> ReminderDueLabel? {
+    guard let due = reminder.dueDate else { return nil }
+
+    let dayText: String
+    if calendar.isDate(due, inSameDayAs: now) {
+      dayText = "Today"
+    } else if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
+              calendar.isDate(due, inSameDayAs: tomorrow) {
+      dayText = "Tomorrow"
+    } else if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+              calendar.isDate(due, inSameDayAs: yesterday) {
+      dayText = "Yesterday"
+    } else if let days = calendar.dateComponents(
+                [.day],
+                from: calendar.startOfDay(for: now),
+                to: calendar.startOfDay(for: due)
+              ).day,
+              (2...6).contains(days) {
+      dayText = due.formatted(Date.FormatStyle(locale: locale, calendar: calendar).weekday(.abbreviated))
+    } else if calendar.component(.year, from: due) == calendar.component(.year, from: now) {
+      dayText = due.formatted(
+        Date.FormatStyle(locale: locale, calendar: calendar).month(.abbreviated).day()
+      )
+    } else {
+      dayText = due.formatted(
+        Date.FormatStyle(locale: locale, calendar: calendar).month(.abbreviated).day().year()
+      )
+    }
+
+    let text: String
+    if reminder.dueIncludesTime {
+      let time = due.formatted(
+        Date.FormatStyle(locale: locale, calendar: calendar).hour().minute()
+      )
+      text = "\(dayText) \(time)"
+    } else {
+      text = dayText
+    }
+
+    let isOverdue = reminder.dueIncludesTime
+      ? due < now
+      : calendar.startOfDay(for: due) < calendar.startOfDay(for: now)
+    return ReminderDueLabel(text: text, isOverdue: isOverdue)
+  }
 }
 
 nonisolated enum ReminderAccessState: Sendable {
@@ -58,11 +166,16 @@ nonisolated final class EventKitReminderSource: ReminderSource, @unchecked Senda
         let items = (reminders ?? []).compactMap { reminder -> FocusReminder? in
           let title = (reminder.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
           guard !title.isEmpty else { return nil }
+          // DateComponents.date is nil unless the components carry a calendar,
+          // which EventKit does not guarantee.
+          let components = reminder.dueDateComponents
           return FocusReminder(
             id: reminder.calendarItemIdentifier,
             title: title,
             listTitle: reminder.calendar?.title ?? "",
-            dueDate: reminder.dueDateComponents?.date
+            dueDate: components.flatMap { Calendar.current.date(from: $0) },
+            dueIncludesTime: components?.hour != nil,
+            listColor: ListColor(reminder.calendar?.color)
           )
         }
         continuation.resume(returning: items)
@@ -83,6 +196,7 @@ nonisolated final class EventKitReminderSource: ReminderSource, @unchecked Senda
 nonisolated struct ReminderGroup: Identifiable, Equatable {
   var id: String { listTitle }
   let listTitle: String
+  let listColor: ListColor?
   let reminders: [FocusReminder]
 }
 
@@ -125,6 +239,10 @@ final class ReminderFocusStore: ObservableObject {
 
   var groupedReminders: [ReminderGroup] {
     Self.group(reminders)
+  }
+
+  func groupedReminders(matching query: String) -> [ReminderGroup] {
+    Self.group(Self.filter(reminders, matching: query))
   }
 
   func requestAccess() async {
@@ -206,8 +324,24 @@ final class ReminderFocusStore: ObservableObject {
       }
       return ReminderGroup(
         listTitle: list,
+        listColor: sorted.first?.listColor,
         reminders: Array(sorted.prefix(maximumRemindersPerList))
       )
+    }
+  }
+
+  /// Every word of the query must appear in the title or the list name,
+  /// ignoring case and diacritics, so "drone bag" finds "DJI drone batteries and bag".
+  static func filter(_ reminders: [FocusReminder], matching query: String) -> [FocusReminder] {
+    let words = query
+      .split(whereSeparator: \.isWhitespace)
+      .map(String.init)
+    guard !words.isEmpty else { return reminders }
+    return reminders.filter { reminder in
+      let haystack = "\(reminder.title) \(reminder.listTitle)"
+      return words.allSatisfy {
+        haystack.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+      }
     }
   }
 

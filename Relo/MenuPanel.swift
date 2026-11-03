@@ -289,6 +289,118 @@ final class SecondaryMenuPanel: NSPanel {
   }
 }
 
+/// Hosts the searchable reminder list beside the menu card. Like the other
+/// menu panels it is non-activating but can become key, so the search field
+/// takes typing without activating Relo.
+@MainActor
+final class ReminderPickerPanel: NSPanel {
+  static let contentSize = NSSize(width: 320, height: 380)
+  private var isDismissing = false
+
+  var isShown: Bool {
+    isVisible && (isKeyWindow || occlusionState.contains(.visible))
+  }
+
+  init() {
+    super.init(
+      contentRect: NSRect(origin: .zero, size: Self.contentSize),
+      styleMask: [.borderless, .nonactivatingPanel],
+      backing: .buffered,
+      defer: false
+    )
+    level = .popUpMenu
+    isOpaque = false
+    backgroundColor = .clear
+    hasShadow = true
+    isMovable = false
+    isReleasedWhenClosed = false
+    animationBehavior = .none
+    collectionBehavior = [.transient, .moveToActiveSpace, .fullScreenAuxiliary]
+  }
+
+  override var canBecomeKey: Bool {
+    true
+  }
+
+  override var canBecomeMain: Bool {
+    false
+  }
+
+  @available(macOS 26.0, *)
+  func installGlassContentViewController(_ hostedController: NSViewController) {
+    contentViewController = GlassMenuContentViewController(
+      hostedController: hostedController
+    )
+  }
+
+  func show(beside primaryWindow: NSWindow) {
+    let availableFrame = primaryWindow.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+    setContentSize(Self.contentSize)
+    setFrameOrigin(ReminderPickerPanelLayout.origin(
+      primaryFrame: primaryWindow.frame,
+      panelSize: Self.contentSize,
+      availableFrame: availableFrame
+    ))
+    isDismissing = false
+    alphaValue = 1
+    parent?.removeChildWindow(self)
+    primaryWindow.addChildWindow(self, ordered: .above)
+    makeKeyAndOrderFront(nil)
+  }
+
+  func dismiss(animated: Bool = true) {
+    guard isVisible, !isDismissing else { return }
+    isDismissing = true
+    makeFirstResponder(nil)
+    parent?.removeChildWindow(self)
+
+    let finishDismissal: @MainActor () -> Void = { [weak self] in
+      guard let self else { return }
+      self.orderOut(nil)
+      self.alphaValue = 1
+      self.isDismissing = false
+    }
+
+    guard animated, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+      finishDismissal()
+      return
+    }
+
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0.12
+      context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+      animator().alphaValue = 0
+    } completionHandler: {
+      DispatchQueue.main.async(execute: finishDismissal)
+    }
+  }
+}
+
+enum ReminderPickerPanelLayout {
+  static let gap: CGFloat = 6
+  static let screenMargin: CGFloat = 8
+
+  /// Beside the card with the tops aligned: to the right when it fits,
+  /// otherwise to the left, and always kept on screen.
+  static func origin(
+    primaryFrame: NSRect,
+    panelSize: NSSize,
+    availableFrame: NSRect
+  ) -> NSPoint {
+    let rightX = primaryFrame.maxX + gap
+    let leftX = primaryFrame.minX - gap - panelSize.width
+    let fitsRight = rightX + panelSize.width <= availableFrame.maxX - screenMargin
+    let minimumX = availableFrame.minX + screenMargin
+    let maximumX = availableFrame.maxX - panelSize.width - screenMargin
+    let x = min(max(fitsRight ? rightX : leftX, minimumX), max(minimumX, maximumX))
+
+    let minimumY = availableFrame.minY + screenMargin
+    let maximumY = availableFrame.maxY - panelSize.height - screenMargin
+    let y = min(max(primaryFrame.maxY - panelSize.height, minimumY), max(minimumY, maximumY))
+    return NSPoint(x: x.rounded(), y: y.rounded())
+  }
+}
+
 enum SecondaryMenuPanelLayout {
   static let screenMargin: CGFloat = 8
   static let primaryTrailingPadding: CGFloat = 16

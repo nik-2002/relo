@@ -137,6 +137,87 @@ final class ReminderFocusStoreTests: XCTestCase {
     XCTAssertEqual(groups[1].reminders.map(\.title), ["Soon", "Later", "Undated"])
   }
 
+  func testSearchMatchesEveryWordInTitleOrListIgnoringCaseAndAccents() {
+    let reminders = [
+      FocusReminder(id: "1", title: "DJI drone batteries and bag", listTitle: "To Buy"),
+      FocusReminder(id: "2", title: "Novena for Work", listTitle: "Interior Life"),
+      FocusReminder(id: "3", title: "Café meeting", listTitle: "Inbox"),
+    ]
+
+    XCTAssertEqual(ReminderFocusStore.filter(reminders, matching: "bag drone").map(\.id), ["1"])
+    XCTAssertEqual(ReminderFocusStore.filter(reminders, matching: "INTERIOR").map(\.id), ["2"])
+    XCTAssertEqual(ReminderFocusStore.filter(reminders, matching: "cafe").map(\.id), ["3"])
+    XCTAssertEqual(ReminderFocusStore.filter(reminders, matching: "  ").count, 3)
+    XCTAssertTrue(ReminderFocusStore.filter(reminders, matching: "drone work").isEmpty)
+  }
+
+  func testGroupsCarryTheirListColor() {
+    let red = ListColor(red: 1, green: 0.2, blue: 0.2)
+    let groups = ReminderFocusStore.group([
+      FocusReminder(id: "1", title: "A", listTitle: "Samar", listColor: red),
+    ])
+    XCTAssertEqual(groups.first?.listColor, red)
+  }
+
+  func testLinkSavedBeforeColorsAndTimesStillLoads() throws {
+    let legacy = #"{"id":"1","title":"Write essay","listTitle":"School"}"#
+    defaults.set(Data(legacy.utf8), forKey: ReloSettingsKeys.linkedReminder)
+
+    let loaded = try XCTUnwrap(ReminderFocusStore.loadLinkedReminder(defaults: defaults))
+
+    XCTAssertEqual(loaded.title, "Write essay")
+    XCTAssertFalse(loaded.dueIncludesTime)
+    XCTAssertNil(loaded.listColor)
+  }
+
+  func testDueLabelsFollowRemindersWording() throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Manila"))
+    let locale = Locale(identifier: "en_US")
+    // Tuesday 3 November 2026, 10:30.
+    let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 3, hour: 10, minute: 30)))
+
+    func label(dayOffset: Int, hour: Int? = nil, years: Int = 0) throws -> ReminderDueLabel? {
+      var day = try XCTUnwrap(calendar.date(byAdding: .day, value: dayOffset, to: calendar.startOfDay(for: now)))
+      day = try XCTUnwrap(calendar.date(byAdding: .year, value: years, to: day))
+      let due = try XCTUnwrap(calendar.date(byAdding: .hour, value: hour ?? 0, to: day))
+      let reminder = FocusReminder(
+        id: "x", title: "x", listTitle: "x", dueDate: due, dueIncludesTime: hour != nil
+      )
+      return ReminderDueLabel.make(for: reminder, now: now, calendar: calendar, locale: locale)
+    }
+
+    XCTAssertEqual(try label(dayOffset: 0), ReminderDueLabel(text: "Today", isOverdue: false))
+    // Foundation separates the time and "PM" with a narrow no-break space.
+    XCTAssertEqual(
+      try label(dayOffset: 0, hour: 14),
+      ReminderDueLabel(text: "Today 2:00\u{202F}PM", isOverdue: false)
+    )
+    XCTAssertEqual(try label(dayOffset: 0, hour: 9)?.isOverdue, true)
+    XCTAssertEqual(try label(dayOffset: 1)?.text, "Tomorrow")
+    XCTAssertEqual(try label(dayOffset: -1), ReminderDueLabel(text: "Yesterday", isOverdue: true))
+    XCTAssertEqual(try label(dayOffset: 2)?.text, "Thu")
+    XCTAssertEqual(try label(dayOffset: 9)?.text, "Nov 12")
+    XCTAssertEqual(try label(dayOffset: 0, years: 1)?.text, "Nov 3, 2027")
+
+    let undated = FocusReminder(id: "y", title: "y", listTitle: "y")
+    XCTAssertNil(ReminderDueLabel.make(for: undated, now: now, calendar: calendar, locale: locale))
+  }
+
+  func testPickerOpensBesideTheCardAndFlipsLeftNearTheScreenEdge() {
+    let screen = NSRect(x: 0, y: 0, width: 1440, height: 875)
+    let size = ReminderPickerPanel.contentSize
+    let cardNearLeft = NSRect(x: 200, y: 600, width: 242, height: 140)
+    let cardNearRight = NSRect(x: 1150, y: 600, width: 242, height: 140)
+
+    let right = ReminderPickerPanelLayout.origin(primaryFrame: cardNearLeft, panelSize: size, availableFrame: screen)
+    XCTAssertEqual(right.x, cardNearLeft.maxX + ReminderPickerPanelLayout.gap)
+    XCTAssertEqual(right.y + size.height, cardNearLeft.maxY)
+
+    let left = ReminderPickerPanelLayout.origin(primaryFrame: cardNearRight, panelSize: size, availableFrame: screen)
+    XCTAssertEqual(left.x + size.width, cardNearRight.minX - ReminderPickerPanelLayout.gap)
+  }
+
   func testFloatingWindowGrowsOnlyWhenAReminderIsLinked() {
     XCTAssertEqual(
       FloatingCountdownWindowController.contentSize(hasLinkedReminder: false),

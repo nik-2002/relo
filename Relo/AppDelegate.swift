@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
   private let menuPanel = MenuPanel()
   private let secondaryMenuPanel = SecondaryMenuPanel()
+  private let reminderPickerPanel = ReminderPickerPanel()
   private let model = ReloModel()
   private let reminderFocus = ReminderFocusStore()
   private let floatingCountdownWindowController = FloatingCountdownWindowController()
@@ -217,6 +218,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       .environment(\.menuSecondaryToggle, MenuSecondaryToggleAction { [weak self] in
         self?.toggleSecondaryMenuPanel()
       })
+      .environment(\.menuReminderPickerToggle, MenuReminderPickerToggleAction { [weak self] in
+        self?.toggleReminderPickerPanel()
+      })
     let hostingController = NSHostingController(rootView: view)
     if #available(macOS 26.0, *) {
       menuPanel.installGlassContentViewController(hostingController)
@@ -242,8 +246,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       secondaryMenuPanel.contentViewController = secondaryHostingController
     }
 
+    let pickerView = ReminderPickerView(usesSystemPopoverSurface: usesNativeGlass) { [weak self] in
+      self?.closeReminderPicker()
+    }
+      .environmentObject(reminderFocus)
+    let pickerHostingController = NSHostingController(rootView: pickerView)
+    if #available(macOS 26.0, *) {
+      reminderPickerPanel.installGlassContentViewController(pickerHostingController)
+    } else {
+      reminderPickerPanel.contentViewController = pickerHostingController
+    }
+
     menuPanel.onDismiss = { [weak self] in
       self?.secondaryMenuPanel.dismiss(animated: false)
+      self?.reminderPickerPanel.dismiss(animated: false)
       self?.lastPopoverDismissAt = Date()
       self?.stopEventMonitors()
       self?.stopMenuPanelAnchorTracking()
@@ -256,7 +272,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       secondaryMenuPanel.dismiss()
       menuPanel.makeKey()
     } else {
+      reminderPickerPanel.dismiss(animated: false)
       secondaryMenuPanel.show(over: menuPanel)
+    }
+  }
+
+  private func toggleReminderPickerPanel() {
+    guard menuPanel.isShown else { return }
+    if reminderPickerPanel.isShown {
+      closeReminderPicker()
+    } else {
+      secondaryMenuPanel.dismiss(animated: false)
+      NotificationCenter.default.post(name: ReminderPickerView.willShowNotification, object: nil)
+      reminderPickerPanel.show(beside: menuPanel)
+    }
+  }
+
+  private func closeReminderPicker() {
+    reminderPickerPanel.dismiss()
+    if menuPanel.isShown {
+      menuPanel.makeKey()
     }
   }
 
@@ -280,6 +315,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   }
 
   private func dismissMenuPanels() {
+    reminderPickerPanel.dismiss()
     secondaryMenuPanel.dismiss()
     menuPanel.dismiss()
   }
@@ -674,6 +710,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
       guard let self else { return event }
+      // Escape backs out of the reminder picker first, then the menu.
+      if self.reminderPickerPanel.isShown && event.keyCode == 53 {
+        self.closeReminderPicker()
+        return nil
+      }
       if self.menuPanel.isShown && event.keyCode == 53 {
         self.dismissMenuPanels()
         return nil
@@ -733,6 +774,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private func handleLocalMouseEvent(_ event: NSEvent) {
     guard menuPanel.isShown else { return }
 
+    if reminderPickerPanel.isShown {
+      if event.window === reminderPickerPanel {
+        return
+      }
+      if event.window === menuPanel {
+        // As with the secondary card: let the "for a reminder" button see the
+        // picker as still open so a second click closes it.
+        if event.type == .leftMouseUp || event.type == .rightMouseUp {
+          DispatchQueue.main.async { [weak self] in
+            guard let self, self.reminderPickerPanel.isShown else { return }
+            self.closeReminderPicker()
+          }
+        }
+        return
+      }
+      dismissMenuPanels()
+      return
+    }
+
     if secondaryMenuPanel.isShown {
       if event.window === secondaryMenuPanel {
         return
@@ -762,6 +822,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private func isEventInPopover(at screenPoint: NSPoint) -> Bool {
     menuPanel.frame.contains(screenPoint)
       || (secondaryMenuPanel.isShown && secondaryMenuPanel.frame.contains(screenPoint))
+      || (reminderPickerPanel.isShown && reminderPickerPanel.frame.contains(screenPoint))
   }
 
   private func isEventInStatusItem(at screenPoint: NSPoint) -> Bool {

@@ -39,8 +39,15 @@ team "Apple Development" certificate, so the Reminders permission survives updat
 Release build carries `com.apple.security.personal-information.calendars`, which is the
 sandbox entitlement that covers Reminders.
 
-Not yet verified by a human: the Reminders permission prompt, the picker, and done /
-not yet in the real app.
+1.3 (build 5) replaced the native menu with a searchable picker in its own panel
+(`ReminderPickerPanel` + `ReminderPickerView`), opened beside the card. It shows list
+colours (EventKit calendar colour), Reminders-style due labels (`ReminderDueLabel`,
+overdue in red), and supports ↑/↓/Return and Escape. A native `NSMenu` cannot host a
+search field, which is why this is a panel.
+
+The user confirmed on 2026-11-03 that the permission prompt and list loading work.
+Not yet verified by a human: the 1.3 picker panel (typing, keyboard navigation,
+outside-click dismissal) and done / not yet.
 
 ## Open items
 

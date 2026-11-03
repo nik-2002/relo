@@ -15,6 +15,7 @@
 		AAAABBBB0000000000000018 /* MenuDismissAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 141414140000000000000014 /* MenuDismissAction.swift */; };
 		A70000000000000000000001 /* ReminderFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000002 /* ReminderFocus.swift */; };
 		A70000000000000000000003 /* ReminderFocusRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000004 /* ReminderFocusRow.swift */; };
+		A70000000000000000000007 /* ReminderPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000008 /* ReminderPickerView.swift */; };
 		AAAABBBB0000000000000020 /* ReloSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 161616160000000000000016 /* ReloSettings.swift */; };
 		AAAABBBB0000000000000021 /* ReloSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171717170000000000000017 /* ReloSettingsView.swift */; };
 		AAAABBBB0000000000000041 /* Sounds/bedside-clock.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 2B2B2B2B000000000000002B /* Sounds/bedside-clock.mp3 */; };
@@ -60,6 +61,7 @@
 		141414140000000000000014 /* MenuDismissAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuDismissAction.swift; sourceTree = "<group>"; };
 		A70000000000000000000002 /* ReminderFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderFocus.swift; sourceTree = "<group>"; };
 		A70000000000000000000004 /* ReminderFocusRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderFocusRow.swift; sourceTree = "<group>"; };
+		A70000000000000000000008 /* ReminderPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderPickerView.swift; sourceTree = "<group>"; };
 		161616160000000000000016 /* ReloSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloSettings.swift; sourceTree = "<group>"; };
 		171717170000000000000017 /* ReloSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReloSettingsView.swift; sourceTree = "<group>"; };
 		191919190000000000000019 /* Sounds/discreet.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Sounds/discreet.wav; sourceTree = "<group>"; };
@@ -143,6 +145,7 @@
 				141414140000000000000014 /* MenuDismissAction.swift */,
 				A70000000000000000000002 /* ReminderFocus.swift */,
 				A70000000000000000000004 /* ReminderFocusRow.swift */,
+				A70000000000000000000008 /* ReminderPickerView.swift */,
 				2B2B2B2B000000000000002B /* Sounds/bedside-clock.mp3 */,
 				2C2C2C2C000000000000002C /* Sounds/digital-tone.mp3 */,
 				191919190000000000000019 /* Sounds/discreet.wav */,
@@ -308,6 +311,7 @@
 				AAAABBBB0000000000000018 /* MenuDismissAction.swift in Sources */,
 				A70000000000000000000001 /* ReminderFocus.swift in Sources */,
 				A70000000000000000000003 /* ReminderFocusRow.swift in Sources */,
+				A70000000000000000000007 /* ReminderPickerView.swift in Sources */,
 				C10000000000000000000001 /* GeneralSettingsSection.swift in Sources */,
 				C10000000000000000000002 /* TimerPresetSettingsSection.swift in Sources */,
 				C10000000000000000000003 /* AlertSettingsSection.swift in Sources */,
@@ -447,13 +451,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = ZV8Y3893Y7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Relo/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nicoestreba.relo;
 				PRODUCT_NAME = Relo;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -469,7 +473,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = ZV8Y3893Y7;
@@ -487,7 +491,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				INFOPLIST_FILE = Relo/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nicoestreba.relo;
 				PRODUCT_NAME = Relo;
 				PROVISIONING_PROFILE_SPECIFIER = "";
