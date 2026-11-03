@@ -7,23 +7,19 @@ on:
 
 jobs:
   build-release:
-    runs-on: macos-15
+    runs-on: macos-26
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Select Xcode 26.1.1
+      - uses: actions/checkout@v5
+      # The project needs Swift 6.2 (Xcode 26 or later); use the newest stable Xcode on the runner.
+      - name: Select latest stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.1.1"
+          xcode-version: latest-stable
 
-      - name: Verify Xcode 26.1.1 is active
-        run: |
-          xcodebuild -version
-          if ! xcodebuild -version | grep -q "Xcode 26.1.1"; then
-            echo "Xcode 26.1.1 is not the active toolchain." >&2
-            exit 1
-          fi
+      - name: Show Xcode version
+        run: xcodebuild -version
 
       - name: Build app (unsigned)
         run: |

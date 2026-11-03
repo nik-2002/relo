@@ -24,7 +24,7 @@ enum ReloSettingsKeys {
   static let floatingCountdownOrigin = "floatingCountdownOrigin"
 }
 
-enum NotificationTone: String, CaseIterable, Identifiable {
+nonisolated enum NotificationTone: String, CaseIterable, Identifiable {
   case bedsideClock = "bedside-clock"
   case digitalTone = "digital-tone"
   case discreet

@@ -207,7 +207,9 @@ final class FloatingCountdownWindowController: NSObject {
       window.animator().alphaValue = 1
       window.animator().setFrame(finalFrame, display: true)
     } completionHandler: { [weak self] in
-      self?.isPlacingWindow = false
+      MainActor.assumeIsolated {
+        self?.isPlacingWindow = false
+      }
     }
   }
 
@@ -218,7 +220,7 @@ final class FloatingCountdownWindowController: NSObject {
 
   private func hide(animated: Bool) {
     guard let window, window.isVisible else { return }
-    let orderOut = { [weak window] in
+    let orderOut: @MainActor () -> Void = { [weak window] in
       window?.orderOut(nil)
     }
 
@@ -235,8 +237,10 @@ final class FloatingCountdownWindowController: NSObject {
       context.timingFunction = CAMediaTimingFunction(name: .easeIn)
       window.animator().alphaValue = 0
     } completionHandler: {
-      window.alphaValue = 1
-      orderOut()
+      MainActor.assumeIsolated {
+        window.alphaValue = 1
+        orderOut()
+      }
     }
   }
 

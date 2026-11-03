@@ -1,16 +1,8 @@
 # Releasing
 
-This guide covers the end-to-end workflows for shipping Relo through supported distribution channels.
+This guide covers the end-to-end workflow for shipping Relo.
 
 ## Version, build, and tag rules
-
-### App Store (App Store Connect)
-
-- Version = what users see on the App Store.
-- Build = Apple’s internal upload counter.
-- Build must increase on every upload.
-- After a version is live on the App Store, any update (even metadata-only) requires a new version number.
-- You can reuse the same version only until it has been released to the App Store (for example, while in review or pending developer release).
 
 ### DMG (GitHub)
 
@@ -33,36 +25,13 @@ This guide covers the end-to-end workflows for shipping Relo through supported d
 
 Open `Relo.xcodeproj`, select the `Relo` scheme, and run from Xcode.
 
-## Release paths
+## Release path
 
-This repo supports two release paths: the Mac App Store flow and the signed + notarized DMG flow for GitHub releases.
-
-### Mac App Store
-
-Use this flow for the Mac App Store build (App Store Connect).
-
-1. Bump the app version/build in Xcode.
-   - Target `Relo` → General → Version (MARKETING_VERSION) and Build (CURRENT_PROJECT_VERSION).
-   - Bump Build to a new integer _every upload_ (App Store Connect rejects reused build numbers).
-
-2. Archive and upload from Xcode.
-   - Product → Archive
-   - Archive Organizer → Distribute App → App Store Connect → Distribute
-   - Wait for the upload to finish. Xcode will show a confirmation screen when the build has been successfully delivered to App Store Connect.
-
-3. Complete the release in App Store Connect.
-   - App Store Connect → Apps → Relo.
-   - If you haven’t created the version yet, click the “+” button and enter the new version number. Otherwise, just open the existing version record.
-   - On the version page, in the Build section, click “Select a build” (or “+”) and choose the uploaded build.
-   - Fill any required metadata (What’s New, etc.) and resolve validation errors.
-   - Click “Save.”
-   - Click “Add for Review.”
-   - Draft submission window opens. Click “Submit for Review.”
-   - After approval, the app will either go live automatically (if you chose automatic release) or you’ll click “Release This Version” to publish it manually.
+Relo ships outside the Mac App Store as a signed, notarized DMG attached to a GitHub release.
 
 ### Signed & notarized DMG
 
-Use this flow for the official non–App Store release. It produces a signed, notarized, and stapled DMG.
+This flow produces a signed, notarized, and stapled DMG.
 
 1. Bump the app version/build in Xcode.
    - Target `Relo` → General → Version (MARKETING_VERSION) and Build (CURRENT_PROJECT_VERSION).

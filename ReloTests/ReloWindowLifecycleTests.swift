@@ -2,6 +2,7 @@ import AppKit
 import XCTest
 @testable import Relo
 
+@MainActor
 final class MenuPanelLayoutTests: XCTestCase {
   func testGeometryUsesRoleBasedMacOSShapes() {
     XCTAssertEqual(ReloGeometry.menuSurfaceRadius, 14)
@@ -436,6 +437,7 @@ final class SettingsWindowControllerTests: XCTestCase {
   }
 }
 
+@MainActor
 final class HotkeyConfigurationTests: XCTestCase {
   func testActionIdentifiersAreUniqueAndRoundTrip() {
     let identifiers = HotkeyAction.allCases.map(\.id)

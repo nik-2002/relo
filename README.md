@@ -14,7 +14,7 @@ Super-minimal menu bar timer for macOS, with natural-language parsing, stopwatch
 
 ## Requirements
 
-Requires macOS 15 or later.
+Requires macOS 15 or later. Built with Xcode 27 and Swift 6.
 
 ## Installation
 
@@ -37,7 +37,7 @@ See [RELEASING.md](RELEASING.md) for the full release workflow.
 
 ## Privacy
 
-Relo does not collect or track personal data. For details, see the [privacy policy](privacy/index.html).
+Relo does not collect, track, or transmit any data. It has no network access: the app sandbox denies incoming and outgoing connections. Preferences and any imported tone stay on your Mac.
 
 ## License
 

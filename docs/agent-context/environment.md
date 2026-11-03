@@ -1,45 +1,41 @@
 # Build, run, and debug environment
 
 Relo is a macOS 15+ menu-bar timer (SwiftUI + AppKit `NSStatusItem` + a custom
-borderless `NSPanel`). The development machine runs **macOS 27.0**, screen 1440×900
+borderless `NSPanel`). The development machine runs **macOS 27.2**, screen 1440×900
 points (scaled).
 
 ## Building — read this first
 
-The active command-line toolchain is **Command Line Tools only**
-(`xcode-select -p` → `/Library/Developer/CommandLineTools`), which cannot build this
-app. The only full Xcode installed is **`/Applications/Xcode-beta.app`** (macOS 27.0
-SDK). Every build must point `DEVELOPER_DIR` at it:
+The active toolchain is **Xcode 27.2** (`xcode-select -p` →
+`/Applications/Xcode.app/Contents/Developer`). The old Xcode beta is gone. No Apple
+signing certificate is in the keychain, so override signing to ad-hoc, and keep derived
+data and `TMPDIR` on the internal SSD (see the storage rule in `AGENTS.md`):
 
 ```sh
-export DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer
+DD="$HOME/Library/Caches/relo-dd"
 xcodebuild -project Relo.xcodeproj -scheme Relo -configuration Debug \
-  -destination 'platform=macOS' -derivedDataPath /tmp/relo-dd build
+  -destination 'platform=macOS' -derivedDataPath "$DD" \
+  CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= build-for-testing
 ```
 
-Verified working 2026-08-12. Build the product to a scratch `-derivedDataPath` outside
-the repo; the checked-in `DerivedData/` directory is stale and should not be reused.
+Verified 2026-11-03: clean build, zero warnings.
 
-Tests:
+## Testing
+
+`xcodebuild test` fails from a CLI session with `Could not launch “ReloTests”`
+(LaunchServices). Do not debug the test target over it. Run the built bundle with
+Xcode's own `xctest` binary instead. Call it by full path: `xcrun` is SIP-protected and
+strips `DYLD_*` variables.
 
 ```sh
-xcodebuild -project Relo.xcodeproj -scheme Relo -destination 'platform=macOS' \
-  -derivedDataPath /tmp/relo-dd test
+P="$DD/Build/Products/Debug"
+DYLD_LIBRARY_PATH="$P/Relo.app/Contents/MacOS:$P" \
+DYLD_FRAMEWORK_PATH="$P:$P/PackageFrameworks" \
+  /Applications/Xcode.app/Contents/Developer/usr/bin/xctest \
+  "$P/Relo.app/Contents/PlugIns/ReloTests.xctest"
 ```
 
-The test runner hits a `Could not launch “ReloTests”` LaunchServices error. Earlier
-sessions got past it on retry (37 tests pass), though one needed 6+ attempts — so do
-not conclude the tests are broken after two or three.
-
-But retrying is not reliably enough. On 2026-08-12 it failed **8 consecutive times**
-from an agent shell, never once reaching a test. Given that app *activation* is also
-broken for agent-launched processes on this machine (see below), the likely story is
-that `xcodebuild test` cannot launch the test host from a background CLI session at
-all, and that the earlier successes came from a differently-privileged context.
-
-Practical guidance: try a few times, and if it keeps failing, do not treat that as a
-red build and do not go debugging the test target. Ask the user to run the tests from
-the Xcode GUI instead, and say plainly that the suite is unverified until they do.
+Verified 2026-11-03: 56 tests, 0 failures.
 
 ## Instrumenting — non-obvious gotchas
 

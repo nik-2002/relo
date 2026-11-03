@@ -115,7 +115,7 @@ final class MenuPanel: NSPanel {
     // AppKit can attempt to move the remote view between the two windows.
     makeFirstResponder(nil)
 
-    let finishDismissal = { [weak self] in
+    let finishDismissal: @MainActor () -> Void = { [weak self] in
       guard let self else { return }
       self.orderOut(sender)
       self.alphaValue = 1
@@ -267,7 +267,7 @@ final class SecondaryMenuPanel: NSPanel {
     // disappearing parent menu during a handoff to Settings.
     parent?.removeChildWindow(self)
 
-    let finishDismissal = { [weak self] in
+    let finishDismissal: @MainActor () -> Void = { [weak self] in
       guard let self else { return }
       self.orderOut(nil)
       self.alphaValue = 1

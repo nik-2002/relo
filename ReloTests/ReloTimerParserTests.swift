@@ -1,6 +1,7 @@
 import XCTest
 @testable import Relo
 
+@MainActor
 final class ReloTimerParserTests: XCTestCase {
   func testDurationFormats() {
     let parser = ReloTimerParser(defaultUnit: .minutes)
@@ -102,20 +103,21 @@ final class ReloTimerParserTests: XCTestCase {
   }
 }
 
+@MainActor
 final class TimerPresetConfigurationTests: XCTestCase {
   private var defaults: UserDefaults!
   private let suiteName = "ReloTests.TimerPresets"
 
-  override func setUp() {
-    super.setUp()
+  override func setUp() async throws {
+    try await super.setUp()
     defaults = UserDefaults(suiteName: suiteName)
     defaults.removePersistentDomain(forName: suiteName)
   }
 
-  override func tearDown() {
+  override func tearDown() async throws {
     defaults.removePersistentDomain(forName: suiteName)
     defaults = nil
-    super.tearDown()
+    try await super.tearDown()
   }
 
   func testDefaultPresetsAreFiveTenAndTwentyFiveMinutes() {
@@ -210,14 +212,15 @@ final class TimerPresetConfigurationTests: XCTestCase {
   }
 }
 
+@MainActor
 final class AlarmConfigurationTests: XCTestCase {
   private var defaults: UserDefaults!
   private let suiteName = "ReloTests.AlarmConfiguration"
   private var toneDirectoryURL: URL!
   private var importedToneStore: ImportedToneStore!
 
-  override func setUp() {
-    super.setUp()
+  override func setUp() async throws {
+    try await super.setUp()
     defaults = UserDefaults(suiteName: suiteName)
     defaults.removePersistentDomain(forName: suiteName)
     toneDirectoryURL = FileManager.default.temporaryDirectory
@@ -225,13 +228,13 @@ final class AlarmConfigurationTests: XCTestCase {
     importedToneStore = ImportedToneStore(directoryURL: toneDirectoryURL)
   }
 
-  override func tearDown() {
+  override func tearDown() async throws {
     defaults.removePersistentDomain(forName: suiteName)
     try? FileManager.default.removeItem(at: toneDirectoryURL)
     importedToneStore = nil
     toneDirectoryURL = nil
     defaults = nil
-    super.tearDown()
+    try await super.tearDown()
   }
 
   func testDefaultsPlayTheStandardAlarmTenTimes() {
