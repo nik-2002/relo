@@ -283,10 +283,20 @@ final class ReminderFocusStore: ObservableObject {
   @discardableResult
   func completeLinkedReminder() -> Bool {
     guard let linkedReminder else { return false }
+    return complete(linkedReminder)
+  }
+
+  /// Ticks a reminder off in Reminders. Completing the linked reminder also
+  /// clears the link, since the commitment is fulfilled.
+  @discardableResult
+  func complete(_ reminder: FocusReminder) -> Bool {
     do {
-      _ = try source.markCompleted(id: linkedReminder.id)
-      reminders.removeAll { $0.id == linkedReminder.id }
-      unlink()
+      _ = try source.markCompleted(id: reminder.id)
+      reminders.removeAll { $0.id == reminder.id }
+      completionError = nil
+      if linkedReminder?.id == reminder.id {
+        unlink()
+      }
       return true
     } catch {
       completionError = "Couldn't update Reminders."

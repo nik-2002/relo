@@ -72,6 +72,31 @@ final class ReminderFocusStoreTests: XCTestCase {
     XCTAssertNil(ReminderFocusStore.loadLinkedReminder(defaults: defaults))
   }
 
+  func testCompletingAnotherReminderFromThePickerKeepsTheLink() async {
+    let source = FakeReminderSource(reminders: [essay, laundry])
+    let store = ReminderFocusStore(source: source, defaults: defaults)
+    await store.refresh()
+    store.link(essay)
+
+    XCTAssertTrue(store.complete(laundry))
+
+    XCTAssertEqual(source.completedIDs, ["2"])
+    XCTAssertEqual(store.reminders, [essay])
+    XCTAssertEqual(store.linkedReminder, essay)
+  }
+
+  func testCompletingTheLinkedReminderFromThePickerClearsTheLink() async {
+    let source = FakeReminderSource(reminders: [essay, laundry])
+    let store = ReminderFocusStore(source: source, defaults: defaults)
+    await store.refresh()
+    store.link(essay)
+
+    XCTAssertTrue(store.complete(essay))
+
+    XCTAssertNil(store.linkedReminder)
+    XCTAssertEqual(store.reminders, [laundry])
+  }
+
   func testFailedCompletionKeepsTheLinkAndReportsAnError() {
     struct Failure: Error {}
     let source = FakeReminderSource(reminders: [essay])

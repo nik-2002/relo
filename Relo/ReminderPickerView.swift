@@ -4,6 +4,7 @@ import SwiftUI
 /// menu cannot hold a search field, so this lives in its own panel.
 struct ReminderPickerView: View {
   static let willShowNotification = Notification.Name("ReloReminderPickerWillShow")
+  static let completionDelay: Duration = .milliseconds(1_500)
 
   let usesSystemPopoverSurface: Bool
   let close: () -> Void
@@ -11,6 +12,7 @@ struct ReminderPickerView: View {
   @EnvironmentObject private var reminders: ReminderFocusStore
   @State private var query = ""
   @State private var highlightedID: String?
+  @State private var pendingCompletionIDs: Set<String> = []
   @FocusState private var isSearchFocused: Bool
 
   var body: some View {
@@ -48,6 +50,14 @@ struct ReminderPickerView: View {
         }
       case .granted:
         reminderList
+
+        if let error = reminders.completionError {
+          Text(error)
+            .font(.caption)
+            .foregroundStyle(.red)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
+        }
       }
     }
     .frame(
@@ -184,58 +194,106 @@ struct ReminderPickerView: View {
   private func row(for reminder: FocusReminder) -> some View {
     let isLinked = reminder.id == reminders.linkedReminder?.id
     let isHighlighted = reminder.id == highlightedID
+    let isCompleting = pendingCompletionIDs.contains(reminder.id)
     let due = ReminderDueLabel.make(for: reminder)
 
-    return Button {
-      pick(reminder)
-    } label: {
-      HStack(alignment: .firstTextBaseline, spacing: 8) {
-        Circle()
-          .strokeBorder(reminder.listColor?.color ?? .secondary, lineWidth: 1.5)
-          .frame(width: 12, height: 12)
-          .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
-          .frame(width: 14)
+    return HStack(alignment: .firstTextBaseline, spacing: 8) {
+      completionRing(for: reminder, isCompleting: isCompleting)
+        .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
 
-        Text(reminder.title)
-          .lineLimit(2)
-          .truncationMode(.tail)
-          .frame(maxWidth: .infinity, alignment: .leading)
+      Button {
+        pick(reminder)
+      } label: {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Text(reminder.title)
+            .lineLimit(2)
+            .truncationMode(.tail)
+            .foregroundStyle(isCompleting ? .secondary : .primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-        if let due {
-          Text(due.text)
-            .font(.system(size: 11).monospacedDigit())
-            .foregroundStyle(due.isOverdue ? Color.red : Color.secondary)
-            .lineLimit(1)
-            .fixedSize()
+          if let due, !isCompleting {
+            Text(due.text)
+              .font(.system(size: 11).monospacedDigit())
+              .foregroundStyle(due.isOverdue ? Color.red : Color.secondary)
+              .lineLimit(1)
+              .fixedSize()
+          }
+
+          if isLinked {
+            Image(systemName: "checkmark")
+              .font(.system(size: 11, weight: .semibold))
+              .foregroundStyle(.secondary)
+          }
         }
-
-        if isLinked {
-          Image(systemName: "checkmark")
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.secondary)
-        }
+        .contentShape(Rectangle())
       }
-      .font(.system(size: 13))
-      .padding(.vertical, 5)
-      .padding(.horizontal, 6)
-      .background(
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-          .fill(isHighlighted ? Color.accentColor.opacity(0.18) : .clear)
+      .buttonStyle(.plain)
+      .help(due.map { "Work on \(reminder.title) — due \($0.text)" } ?? "Work on \(reminder.title)")
+      .accessibilityLabel(
+        [reminder.title, reminder.listTitle, due.map { "due \($0.text)" }]
+          .compactMap { $0 }
+          .joined(separator: ", ")
       )
-      .contentShape(Rectangle())
+      .accessibilityHint("Links this reminder to the timer")
     }
-    .buttonStyle(.plain)
+    .font(.system(size: 13))
+    .padding(.vertical, 5)
+    .padding(.horizontal, 6)
+    .background(
+      RoundedRectangle(cornerRadius: 6, style: .continuous)
+        .fill(isHighlighted ? Color.accentColor.opacity(0.18) : .clear)
+    )
     .onHover { hovering in
       if hovering {
         highlightedID = reminder.id
       }
     }
-    .help(due.map { "\(reminder.title) — due \($0.text)" } ?? reminder.title)
-    .accessibilityLabel(
-      [reminder.title, reminder.listTitle, due.map { "due \($0.text)" }]
-        .compactMap { $0 }
-        .joined(separator: ", ")
-    )
+    .animation(.easeOut(duration: 0.15), value: isCompleting)
+  }
+
+  /// Mirrors Reminders: clicking the ring fills it, and the reminder is
+  /// completed after a short pause, during which a second click undoes it.
+  private func completionRing(for reminder: FocusReminder, isCompleting: Bool) -> some View {
+    let color = reminder.listColor?.color ?? .secondary
+    return Button {
+      toggleCompletion(of: reminder)
+    } label: {
+      ZStack {
+        if isCompleting {
+          Circle()
+            .fill(color)
+          Image(systemName: "checkmark")
+            .font(.system(size: 7, weight: .heavy))
+            .foregroundStyle(.white)
+        } else {
+          Circle()
+            .strokeBorder(color, lineWidth: 1.5)
+        }
+      }
+      .frame(width: 12, height: 12)
+      .frame(width: 14, height: 14)
+      .contentShape(Circle().inset(by: -4))
+    }
+    .buttonStyle(.plain)
+    .help(isCompleting ? "Undo" : "Mark as completed")
+    .accessibilityLabel(isCompleting ? "Undo completing \(reminder.title)" : "Complete \(reminder.title)")
+  }
+
+  private func toggleCompletion(of reminder: FocusReminder) {
+    if pendingCompletionIDs.remove(reminder.id) != nil {
+      return
+    }
+    pendingCompletionIDs.insert(reminder.id)
+    Task {
+      try? await Task.sleep(for: Self.completionDelay)
+      guard pendingCompletionIDs.remove(reminder.id) != nil else { return }
+      if highlightedID == reminder.id {
+        moveHighlight(by: 1)
+      }
+      withAnimation(.easeOut(duration: 0.2)) {
+        _ = reminders.complete(reminder)
+      }
+    }
   }
 
   private func accessMessage(
