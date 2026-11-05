@@ -1,6 +1,6 @@
 # Relo — session handoff
 
-Last updated 2026-11-03.
+Last updated 2026-11-05.
 
 ## Where things stand
 
@@ -13,7 +13,7 @@ Relo 1.1 (build 3) is the current version. The 2026-11-03 housekeeping pass:
   carried a third-party analytics tag), unused icon drafts, the unused `.icns` /
   `.iconset`, unreferenced image sets and sound files, and the empty Preview Content
   catalog.
-- All 56 unit tests pass through Xcode's `xctest` runner (see `environment.md`).
+- All unit tests (76 as of 1.5) pass through Xcode's `xctest` runner (see `environment.md`).
 
 The Release build is ad-hoc signed, sandboxed, and hardened. It is not notarized: no
 Developer ID or Apple Development identity is in the keychain. Friends installing the
@@ -44,6 +44,15 @@ sandbox entitlement that covers Reminders.
 colours (EventKit calendar colour), Reminders-style due labels (`ReminderDueLabel`,
 overdue in red), and supports ↑/↓/Return and Escape. A native `NSMenu` cannot host a
 search field, which is why this is a panel.
+
+1.4 (build 6) made the picker's ring complete a reminder after 1.5 s (a second click
+undoes it). 1.5 (build 7, 2026-11-05) adds a "New “…”" row under the picker list when
+the search text matches no reminder title exactly: it creates the reminder in the list
+chosen from the row's menu (remembered in `newReminderList`, else Reminders' default
+list), links it, and starts the timer like Return on the card (typed duration, else the
+longest preset). A countdown that is already running is left alone. The user decided
+on 2026-11-05 that this is the limit: editing, deleting, dates, and notes stay in the
+Reminders app so Relo does not bloat.
 
 The user confirmed on 2026-11-03 that the permission prompt and list loading work.
 Not yet verified by a human: the 1.3 picker panel (typing, keyboard navigation,

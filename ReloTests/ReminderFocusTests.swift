@@ -6,6 +6,13 @@ private final class FakeReminderSource: ReminderSource, @unchecked Sendable {
   var reminders: [FocusReminder]
   var completedIDs: [String] = []
   var completionError: Error?
+  var lists: [ReminderList] = [
+    ReminderList(id: "school", title: "School"),
+    ReminderList(id: "home", title: "Home"),
+  ]
+  var defaultListID: String? = "home"
+  var creationError: Error?
+  private var nextID = 100
 
   init(access: ReminderAccessState = .granted, reminders: [FocusReminder] = []) {
     accessState = access
@@ -28,6 +35,19 @@ private final class FakeReminderSource: ReminderSource, @unchecked Sendable {
     completedIDs.append(id)
     reminders.removeAll { $0.id == id }
     return true
+  }
+
+  func writableLists() -> [ReminderList] {
+    lists
+  }
+
+  func createReminder(title: String, listID: String) throws -> FocusReminder {
+    if let creationError { throw creationError }
+    nextID += 1
+    let list = lists.first { $0.id == listID }
+    let reminder = FocusReminder(id: "\(nextID)", title: title, listTitle: list?.title ?? "")
+    reminders.append(reminder)
+    return reminder
   }
 }
 
@@ -143,6 +163,66 @@ final class ReminderFocusStoreTests: XCTestCase {
     await store.requestAccess()
     XCTAssertEqual(store.access, .granted)
     XCTAssertEqual(store.reminders, [essay])
+  }
+
+  func testNewRemindersGoToTheDefaultListUntilAnotherIsChosen() async {
+    let source = FakeReminderSource()
+    let store = ReminderFocusStore(source: source, defaults: defaults)
+    await store.refresh()
+    XCTAssertEqual(store.newReminderList?.title, "Home")
+
+    store.chooseNewReminderList(source.lists[0])
+    let relaunched = ReminderFocusStore(source: source, defaults: defaults)
+    await relaunched.refresh()
+
+    XCTAssertEqual(relaunched.newReminderList?.title, "School")
+  }
+
+  func testRememberedListThatWasDeletedFallsBackToTheDefault() async {
+    let source = FakeReminderSource()
+    defaults.set("gone", forKey: ReloSettingsKeys.newReminderList)
+    let store = ReminderFocusStore(source: source, defaults: defaults)
+
+    await store.refresh()
+
+    XCTAssertEqual(store.newReminderListID, "home")
+  }
+
+  func testCreatingAReminderAddsItToTheChosenListAndLinksIt() async throws {
+    let source = FakeReminderSource(reminders: [essay])
+    let store = ReminderFocusStore(source: source, defaults: defaults)
+    await store.refresh()
+    store.chooseNewReminderList(source.lists[0])
+
+    XCTAssertTrue(store.createAndLink(title: "  Read chapter 4 "))
+
+    let linked = try XCTUnwrap(store.linkedReminder)
+    XCTAssertEqual(linked.title, "Read chapter 4")
+    XCTAssertEqual(linked.listTitle, "School")
+    XCTAssertTrue(store.reminders.contains(linked))
+    XCTAssertEqual(source.reminders.last, linked)
+  }
+
+  func testFailedCreationReportsAnErrorAndLinksNothing() async {
+    struct Failure: Error {}
+    let source = FakeReminderSource()
+    source.creationError = Failure()
+    let store = ReminderFocusStore(source: source, defaults: defaults)
+    await store.refresh()
+
+    XCTAssertFalse(store.createAndLink(title: "Read"))
+
+    XCTAssertNil(store.linkedReminder)
+    XCTAssertNotNil(store.completionError)
+  }
+
+  func testCreationIsOfferedOnlyForANewTitle() {
+    let existing = [essay, FocusReminder(id: "3", title: "Café run", listTitle: "Home")]
+
+    XCTAssertTrue(ReminderFocusStore.canCreate(from: "Write", existing: existing))
+    XCTAssertFalse(ReminderFocusStore.canCreate(from: " write ESSAY ", existing: existing))
+    XCTAssertFalse(ReminderFocusStore.canCreate(from: "cafe run", existing: existing))
+    XCTAssertFalse(ReminderFocusStore.canCreate(from: "   ", existing: existing))
   }
 
   func testGroupsKeepListOrderAndSortByDueDateThenTitle() {

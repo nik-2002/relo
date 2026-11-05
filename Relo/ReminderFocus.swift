@@ -43,6 +43,13 @@ nonisolated struct FocusReminder: Identifiable, Hashable, Codable, Sendable {
   }
 }
 
+/// A Reminders list a new reminder can be added to.
+nonisolated struct ReminderList: Identifiable, Hashable, Sendable {
+  let id: String
+  var title: String
+  var color: ListColor?
+}
+
 nonisolated struct ListColor: Hashable, Codable, Sendable {
   var red: Double
   var green: Double
@@ -132,6 +139,11 @@ nonisolated protocol ReminderSource: AnyObject, Sendable {
   func incompleteReminders() async -> [FocusReminder]
   /// Returns false when the reminder no longer exists.
   func markCompleted(id: String) throws -> Bool
+  /// Lists that accept new reminders, in Reminders' order.
+  func writableLists() -> [ReminderList]
+  /// The list Reminders adds new reminders to by default.
+  var defaultListID: String? { get }
+  func createReminder(title: String, listID: String) throws -> FocusReminder
 }
 
 /// The EventKit-backed source. Kept nonisolated because EventKit delivers fetch
@@ -191,6 +203,32 @@ nonisolated final class EventKitReminderSource: ReminderSource, @unchecked Senda
     try store.save(reminder, commit: true)
     return true
   }
+
+  func writableLists() -> [ReminderList] {
+    store.calendars(for: .reminder)
+      .filter(\.allowsContentModifications)
+      .map { ReminderList(id: $0.calendarIdentifier, title: $0.title, color: ListColor($0.color)) }
+  }
+
+  var defaultListID: String? {
+    store.defaultCalendarForNewReminders()?.calendarIdentifier
+  }
+
+  func createReminder(title: String, listID: String) throws -> FocusReminder {
+    guard let calendar = store.calendar(withIdentifier: listID) else {
+      throw CocoaError(.fileNoSuchFile)
+    }
+    let reminder = EKReminder(eventStore: store)
+    reminder.title = title
+    reminder.calendar = calendar
+    try store.save(reminder, commit: true)
+    return FocusReminder(
+      id: reminder.calendarItemIdentifier,
+      title: title,
+      listTitle: calendar.title,
+      listColor: ListColor(calendar.color)
+    )
+  }
 }
 
 nonisolated struct ReminderGroup: Identifiable, Equatable {
@@ -213,6 +251,10 @@ final class ReminderFocusStore: ObservableObject {
   @Published private(set) var reminders: [FocusReminder] = []
   @Published private(set) var linkedReminder: FocusReminder?
   @Published private(set) var completionError: String?
+  @Published private(set) var lists: [ReminderList] = []
+  /// Where a reminder made from the picker goes: the last list used there,
+  /// falling back to Reminders' default list.
+  @Published private(set) var newReminderListID: String?
 
   private let source: any ReminderSource
   private let defaults: UserDefaults
@@ -254,9 +296,16 @@ final class ReminderFocusStore: ObservableObject {
     access = source.accessState
     guard access == .granted else {
       reminders = []
+      lists = []
       return
     }
     reminders = await source.incompleteReminders()
+    lists = source.writableLists()
+    let saved = defaults.string(forKey: ReloSettingsKeys.newReminderList)
+    newReminderListID = [saved, source.defaultListID]
+      .compactMap { $0 }
+      .first { id in lists.contains { $0.id == id } }
+      ?? lists.first?.id
     // Completed or deleted in Reminders itself: the commitment is over.
     if let linkedReminder, !reminders.contains(where: { $0.id == linkedReminder.id }) {
       unlink()
@@ -301,6 +350,41 @@ final class ReminderFocusStore: ObservableObject {
     } catch {
       completionError = "Couldn't update Reminders."
       return false
+    }
+  }
+
+  var newReminderList: ReminderList? {
+    lists.first { $0.id == newReminderListID }
+  }
+
+  func chooseNewReminderList(_ list: ReminderList) {
+    newReminderListID = list.id
+    defaults.set(list.id, forKey: ReloSettingsKeys.newReminderList)
+  }
+
+  /// Adds a reminder to the chosen list and commits the timer to it.
+  @discardableResult
+  func createAndLink(title: String) -> Bool {
+    let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !title.isEmpty, let listID = newReminderListID else { return false }
+    do {
+      let reminder = try source.createReminder(title: title, listID: listID)
+      reminders.append(reminder)
+      defaults.set(listID, forKey: ReloSettingsKeys.newReminderList)
+      link(reminder)
+      return true
+    } catch {
+      completionError = "Couldn't add to Reminders."
+      return false
+    }
+  }
+
+  /// The picker offers to add a reminder unless the query already names one.
+  static func canCreate(from query: String, existing reminders: [FocusReminder]) -> Bool {
+    let title = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !title.isEmpty else { return false }
+    return !reminders.contains {
+      $0.title.compare(title, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
     }
   }
 

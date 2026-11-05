@@ -5,8 +5,12 @@ import SwiftUI
 struct ReminderPickerView: View {
   static let willShowNotification = Notification.Name("ReloReminderPickerWillShow")
   static let completionDelay: Duration = .milliseconds(1_500)
+  /// Highlight ID of the "New reminder" row, which sits after the matches.
+  static let newReminderRowID = "relo.new-reminder"
 
   let usesSystemPopoverSurface: Bool
+  /// Starts a countdown for a reminder made here, unless one is already running.
+  let startTimer: () -> Void
   let close: () -> Void
 
   @EnvironmentObject private var reminders: ReminderFocusStore
@@ -51,6 +55,14 @@ struct ReminderPickerView: View {
       case .granted:
         reminderList
 
+        if showsNewReminderRow {
+          Divider()
+            .padding(.horizontal, 12)
+          newReminderRow
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
+        }
+
         if let error = reminders.completionError {
           Text(error)
             .font(.caption)
@@ -70,7 +82,7 @@ struct ReminderPickerView: View {
       highlightedID = nil
       Task {
         await reminders.refresh()
-        highlightedID = visibleReminders.first?.id
+        highlightedID = highlightableIDs.first
       }
       DispatchQueue.main.async {
         isSearchFocused = true
@@ -84,7 +96,7 @@ struct ReminderPickerView: View {
         .font(.system(size: 12, weight: .medium))
         .foregroundStyle(.secondary)
 
-      TextField("Search reminders", text: $query)
+      TextField("Search or add a reminder", text: $query)
         .textFieldStyle(.plain)
         .font(.system(size: 13))
         .focused($isSearchFocused)
@@ -98,7 +110,7 @@ struct ReminderPickerView: View {
           return .handled
         }
         .onChange(of: query) { _, _ in
-          highlightedID = visibleReminders.first?.id
+          highlightedID = highlightableIDs.first
         }
 
       if !query.isEmpty {
@@ -125,6 +137,15 @@ struct ReminderPickerView: View {
     groups.flatMap(\.reminders)
   }
 
+  private var showsNewReminderRow: Bool {
+    reminders.newReminderList != nil
+      && ReminderFocusStore.canCreate(from: query, existing: reminders.reminders)
+  }
+
+  private var highlightableIDs: [String] {
+    visibleReminders.map(\.id) + (showsNewReminderRow ? [Self.newReminderRowID] : [])
+  }
+
   private var reminderList: some View {
     ScrollViewReader { proxy in
       ScrollView {
@@ -134,7 +155,7 @@ struct ReminderPickerView: View {
           }
 
           let groups = groups
-          if groups.isEmpty {
+          if groups.isEmpty, !showsNewReminderRow {
             Text(query.isEmpty ? "No open reminders" : "No matches")
               .font(.system(size: 12))
               .foregroundStyle(.secondary)
@@ -251,6 +272,77 @@ struct ReminderPickerView: View {
     .animation(.easeOut(duration: 0.15), value: isCompleting)
   }
 
+  /// Adds the typed title to a list and starts working on it straight away.
+  private var newReminderRow: some View {
+    let isHighlighted = highlightedID == Self.newReminderRowID
+    let title = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    return HStack(spacing: 8) {
+      Button(action: createFromQuery) {
+        HStack(spacing: 8) {
+          Image(systemName: "plus.circle.fill")
+            .font(.system(size: 13))
+            .foregroundStyle(reminders.newReminderList?.color?.color ?? .accentColor)
+            .frame(width: 14)
+          Text("New “\(title)”")
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .help("Add “\(title)” to Reminders and start the timer")
+      .accessibilityHint("Adds this reminder and starts the timer")
+
+      listMenu
+    }
+    .font(.system(size: 13))
+    .padding(.vertical, 5)
+    .padding(.horizontal, 6)
+    .background(
+      RoundedRectangle(cornerRadius: 6, style: .continuous)
+        .fill(isHighlighted ? Color.accentColor.opacity(0.18) : .clear)
+    )
+    .onHover { hovering in
+      if hovering {
+        highlightedID = Self.newReminderRowID
+      }
+    }
+  }
+
+  private var listMenu: some View {
+    Menu {
+      ForEach(reminders.lists) { list in
+        Button {
+          reminders.chooseNewReminderList(list)
+        } label: {
+          if list.id == reminders.newReminderListID {
+            Label(list.title, systemImage: "checkmark")
+          } else {
+            Text(list.title)
+          }
+        }
+      }
+    } label: {
+      Text(reminders.newReminderList?.title ?? "List")
+        .font(.system(size: 11, weight: .semibold))
+        .foregroundStyle(reminders.newReminderList?.color?.color ?? .secondary)
+        .lineLimit(1)
+    }
+    .menuStyle(.borderlessButton)
+    .menuIndicator(.visible)
+    .fixedSize()
+    .help("Choose the list for the new reminder")
+    .accessibilityLabel("List: \(reminders.newReminderList?.title ?? "none")")
+  }
+
+  private func createFromQuery() {
+    guard reminders.createAndLink(title: query) else { return }
+    startTimer()
+    close()
+  }
+
   /// Mirrors Reminders: clicking the ring fills it, and the reminder is
   /// completed after a short pause, during which a second click undoes it.
   private func completionRing(for reminder: FocusReminder, isCompleting: Bool) -> some View {
@@ -320,19 +412,21 @@ struct ReminderPickerView: View {
   }
 
   private func pickHighlighted() {
-    let visible = visibleReminders
-    guard let reminder = visible.first(where: { $0.id == highlightedID }) ?? visible.first else {
-      return
+    let ids = highlightableIDs
+    guard let id = ids.first(where: { $0 == highlightedID }) ?? ids.first else { return }
+    if id == Self.newReminderRowID {
+      createFromQuery()
+    } else if let reminder = visibleReminders.first(where: { $0.id == id }) {
+      pick(reminder)
     }
-    pick(reminder)
   }
 
   private func moveHighlight(by offset: Int) {
-    let visible = visibleReminders
-    guard !visible.isEmpty else { return }
-    let currentIndex = visible.firstIndex { $0.id == highlightedID } ?? -1
-    let nextIndex = min(max(currentIndex + offset, 0), visible.count - 1)
-    highlightedID = visible[nextIndex].id
+    let ids = highlightableIDs
+    guard !ids.isEmpty else { return }
+    let currentIndex = ids.firstIndex { $0 == highlightedID } ?? -1
+    let nextIndex = min(max(currentIndex + offset, 0), ids.count - 1)
+    highlightedID = ids[nextIndex]
   }
 }
 

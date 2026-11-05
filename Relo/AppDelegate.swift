@@ -246,9 +246,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       secondaryMenuPanel.contentViewController = secondaryHostingController
     }
 
-    let pickerView = ReminderPickerView(usesSystemPopoverSurface: usesNativeGlass) { [weak self] in
-      self?.closeReminderPicker()
-    }
+    let pickerView = ReminderPickerView(
+      usesSystemPopoverSurface: usesNativeGlass,
+      startTimer: { [weak self] in
+        guard let self, !self.model.isRunning || self.model.isFinished else { return }
+        _ = self.model.startFromInputs(
+          defaultingTo: TimerPresetConfiguration.largestStoredPresetValue()
+        )
+      },
+      close: { [weak self] in
+        self?.closeReminderPicker()
+      }
+    )
       .environmentObject(reminderFocus)
     let pickerHostingController = NSHostingController(rootView: pickerView)
     if #available(macOS 26.0, *) {
