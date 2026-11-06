@@ -12,6 +12,8 @@ private final class FakeReminderSource: ReminderSource, @unchecked Sendable {
   ]
   var defaultListID: String? = "home"
   var creationError: Error?
+  var deletedIDs: [String] = []
+  var deletionError: Error?
   private var nextID = 100
 
   init(access: ReminderAccessState = .granted, reminders: [FocusReminder] = []) {
@@ -39,6 +41,13 @@ private final class FakeReminderSource: ReminderSource, @unchecked Sendable {
 
   func writableLists() -> [ReminderList] {
     lists
+  }
+
+  func deleteReminder(id: String) throws -> Bool {
+    if let deletionError { throw deletionError }
+    deletedIDs.append(id)
+    reminders.removeAll { $0.id == id }
+    return true
   }
 
   func createReminder(title: String, listID: String) throws -> FocusReminder {
@@ -223,6 +232,41 @@ final class ReminderFocusStoreTests: XCTestCase {
     XCTAssertFalse(ReminderFocusStore.canCreate(from: " write ESSAY ", existing: existing))
     XCTAssertFalse(ReminderFocusStore.canCreate(from: "cafe run", existing: existing))
     XCTAssertFalse(ReminderFocusStore.canCreate(from: "   ", existing: existing))
+  }
+
+  func testDeletingTheLinkedReminderRemovesItAndClearsTheLink() async {
+    let source = FakeReminderSource(reminders: [essay, laundry])
+    let store = ReminderFocusStore(source: source, defaults: defaults)
+    await store.refresh()
+    store.link(essay)
+
+    XCTAssertTrue(store.delete(essay))
+
+    XCTAssertEqual(source.deletedIDs, ["1"])
+    XCTAssertEqual(store.reminders, [laundry])
+    XCTAssertNil(store.linkedReminder)
+  }
+
+  func testFailedDeletionKeepsTheReminderAndReportsAnError() async {
+    struct Failure: Error {}
+    let source = FakeReminderSource(reminders: [essay])
+    source.deletionError = Failure()
+    let store = ReminderFocusStore(source: source, defaults: defaults)
+    await store.refresh()
+
+    XCTAssertFalse(store.delete(essay))
+
+    XCTAssertEqual(store.reminders, [essay])
+    XCTAssertNotNil(store.completionError)
+  }
+
+  func testRemindersLinkUsesTheExternalIdentifier() {
+    let reminder = FocusReminder(id: "1", title: "Essay", listTitle: "School", externalID: "ABC-123")
+    XCTAssertEqual(
+      ReminderFocusStore.remindersURL(for: reminder)?.absoluteString,
+      "x-apple-reminderkit://REMCDReminder/ABC-123"
+    )
+    XCTAssertNil(ReminderFocusStore.remindersURL(for: essay))
   }
 
   func testGroupsKeepListOrderAndSortByDueDateThenTitle() {

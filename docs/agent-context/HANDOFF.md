@@ -13,7 +13,7 @@ Relo 1.1 (build 3) is the current version. The 2026-11-03 housekeeping pass:
   carried a third-party analytics tag), unused icon drafts, the unused `.icns` /
   `.iconset`, unreferenced image sets and sound files, and the empty Preview Content
   catalog.
-- All unit tests (79 as of 1.6) pass through Xcode's `xctest` runner (see `environment.md`).
+- All unit tests (82 as of 1.7) pass through Xcode's `xctest` runner (see `environment.md`).
 
 The Release build is ad-hoc signed, sandboxed, and hardened. It is not notarized: no
 Developer ID or Apple Development identity is in the keychain. Friends installing the

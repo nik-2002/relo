@@ -14,6 +14,8 @@ nonisolated struct FocusReminder: Identifiable, Hashable, Codable, Sendable {
   var dueIncludesTime = false
   /// The Reminders list colour as sRGB components.
   var listColor: ListColor?
+  /// EventKit's server-side identifier, which the Reminders app uses in links.
+  var externalID: String?
 
   init(
     id: String,
@@ -21,7 +23,8 @@ nonisolated struct FocusReminder: Identifiable, Hashable, Codable, Sendable {
     listTitle: String,
     dueDate: Date? = nil,
     dueIncludesTime: Bool = false,
-    listColor: ListColor? = nil
+    listColor: ListColor? = nil,
+    externalID: String? = nil
   ) {
     self.id = id
     self.title = title
@@ -29,6 +32,7 @@ nonisolated struct FocusReminder: Identifiable, Hashable, Codable, Sendable {
     self.dueDate = dueDate
     self.dueIncludesTime = dueIncludesTime
     self.listColor = listColor
+    self.externalID = externalID
   }
 
   // Links saved by 1.2 predate the colour and time fields.
@@ -40,6 +44,7 @@ nonisolated struct FocusReminder: Identifiable, Hashable, Codable, Sendable {
     dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
     dueIncludesTime = try container.decodeIfPresent(Bool.self, forKey: .dueIncludesTime) ?? false
     listColor = try container.decodeIfPresent(ListColor.self, forKey: .listColor)
+    externalID = try container.decodeIfPresent(String.self, forKey: .externalID)
   }
 }
 
@@ -144,6 +149,8 @@ nonisolated protocol ReminderSource: AnyObject, Sendable {
   /// The list Reminders adds new reminders to by default.
   var defaultListID: String? { get }
   func createReminder(title: String, listID: String) throws -> FocusReminder
+  /// Returns false when the reminder no longer exists.
+  func deleteReminder(id: String) throws -> Bool
 }
 
 /// The EventKit-backed source. Kept nonisolated because EventKit delivers fetch
@@ -187,7 +194,8 @@ nonisolated final class EventKitReminderSource: ReminderSource, @unchecked Senda
             listTitle: reminder.calendar?.title ?? "",
             dueDate: components.flatMap { Calendar.current.date(from: $0) },
             dueIncludesTime: components?.hour != nil,
-            listColor: ListColor(reminder.calendar?.color)
+            listColor: ListColor(reminder.calendar?.color),
+            externalID: reminder.calendarItemExternalIdentifier
           )
         }
         continuation.resume(returning: items)
@@ -226,8 +234,17 @@ nonisolated final class EventKitReminderSource: ReminderSource, @unchecked Senda
       id: reminder.calendarItemIdentifier,
       title: title,
       listTitle: calendar.title,
-      listColor: ListColor(calendar.color)
+      listColor: ListColor(calendar.color),
+      externalID: reminder.calendarItemExternalIdentifier
     )
+  }
+
+  func deleteReminder(id: String) throws -> Bool {
+    guard let reminder = store.calendarItem(withIdentifier: id) as? EKReminder else {
+      return false
+    }
+    try store.remove(reminder, commit: true)
+    return true
   }
 }
 
@@ -246,6 +263,7 @@ final class ReminderFocusStore: ObservableObject {
   static let privacySettingsURL = URL(
     string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders"
   )!
+  static let remindersBundleID = "com.apple.reminders"
 
   @Published private(set) var access: ReminderAccessState
   @Published private(set) var reminders: [FocusReminder] = []
@@ -386,6 +404,43 @@ final class ReminderFocusStore: ObservableObject {
     return !reminders.contains {
       $0.title.compare(title, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
     }
+  }
+
+  /// Removes a reminder from Reminders. Deleting the linked reminder clears the link.
+  @discardableResult
+  func delete(_ reminder: FocusReminder) -> Bool {
+    do {
+      _ = try source.deleteReminder(id: reminder.id)
+      reminders.removeAll { $0.id == reminder.id }
+      completionError = nil
+      if linkedReminder?.id == reminder.id {
+        unlink()
+      }
+      return true
+    } catch {
+      completionError = "Couldn't update Reminders."
+      return false
+    }
+  }
+
+  /// The Reminders app's own link to an item. Apple doesn't document it, so
+  /// opening falls back to plain Reminders when the app can't take the link.
+  static func remindersURL(for reminder: FocusReminder) -> URL? {
+    guard let externalID = reminder.externalID, !externalID.isEmpty,
+          let encoded = externalID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+      return nil
+    }
+    return URL(string: "x-apple-reminderkit://REMCDReminder/\(encoded)")
+  }
+
+  func openInReminders(_ reminder: FocusReminder) {
+    if let url = Self.remindersURL(for: reminder), NSWorkspace.shared.open(url) {
+      return
+    }
+    guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.remindersBundleID) else {
+      return
+    }
+    NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration())
   }
 
   func openPrivacySettings() {

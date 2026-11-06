@@ -5,6 +5,8 @@ import SwiftUI
 struct ReminderPickerView: View {
   static let willShowNotification = Notification.Name("ReloReminderPickerWillShow")
   static let completionDelay: Duration = .milliseconds(1_500)
+  /// How long the Undo bar stays before a deleted reminder is really removed.
+  static let deletionDelay: Duration = .seconds(4)
   /// Highlight ID of the "New reminder" row, which sits after the matches.
   static let newReminderRowID = "relo.new-reminder"
 
@@ -17,6 +19,7 @@ struct ReminderPickerView: View {
   @State private var query = ""
   @State private var highlightedID: String?
   @State private var pendingCompletionIDs: Set<String> = []
+  @State private var pendingDeletion: FocusReminder?
   @FocusState private var isSearchFocused: Bool
 
   var body: some View {
@@ -55,6 +58,10 @@ struct ReminderPickerView: View {
       case .granted:
         reminderList
 
+        if let pendingDeletion {
+          undoDeletionBar(for: pendingDeletion)
+        }
+
         if showsNewReminderRow {
           Divider()
             .padding(.horizontal, 12)
@@ -78,6 +85,7 @@ struct ReminderPickerView: View {
       alignment: .top
     )
     .onReceive(NotificationCenter.default.publisher(for: Self.willShowNotification)) { _ in
+      commitPendingDeletion()
       query = ""
       highlightedID = nil
       Task {
@@ -130,7 +138,13 @@ struct ReminderPickerView: View {
   }
 
   private var groups: [ReminderGroup] {
-    reminders.groupedReminders(matching: query)
+    let groups = reminders.groupedReminders(matching: query)
+    guard let hiddenID = pendingDeletion?.id else { return groups }
+    return groups.compactMap { group in
+      let remaining = group.reminders.filter { $0.id != hiddenID }
+      guard !remaining.isEmpty else { return nil }
+      return ReminderGroup(listTitle: group.listTitle, listColor: group.listColor, reminders: remaining)
+    }
   }
 
   private var visibleReminders: [FocusReminder] {
@@ -269,7 +283,78 @@ struct ReminderPickerView: View {
         highlightedID = reminder.id
       }
     }
+    .contextMenu {
+      contextMenu(for: reminder)
+    }
     .animation(.easeOut(duration: 0.15), value: isCompleting)
+  }
+
+  @ViewBuilder
+  private func contextMenu(for reminder: FocusReminder) -> some View {
+    Button("Work on This") {
+      pick(reminder)
+    }
+    Button("Open in Reminders") {
+      reminders.openInReminders(reminder)
+      close()
+    }
+    Button("Mark as Completed") {
+      if !pendingCompletionIDs.contains(reminder.id) {
+        toggleCompletion(of: reminder)
+      }
+    }
+    Divider()
+    Button("Delete", role: .destructive) {
+      delete(reminder)
+    }
+  }
+
+  /// Mirrors Reminders, which deletes without asking but offers Undo: the row
+  /// disappears at once and is only removed from Reminders once the bar goes.
+  private func delete(_ reminder: FocusReminder) {
+    commitPendingDeletion()
+    pendingCompletionIDs.remove(reminder.id)
+    if highlightedID == reminder.id {
+      moveHighlight(by: 1)
+    }
+    withAnimation(.easeOut(duration: 0.2)) {
+      pendingDeletion = reminder
+    }
+    Task {
+      try? await Task.sleep(for: Self.deletionDelay)
+      guard pendingDeletion?.id == reminder.id else { return }
+      commitPendingDeletion()
+    }
+  }
+
+  private func commitPendingDeletion() {
+    guard let reminder = pendingDeletion else { return }
+    withAnimation(.easeOut(duration: 0.2)) {
+      pendingDeletion = nil
+    }
+    _ = reminders.delete(reminder)
+  }
+
+  private func undoDeletionBar(for reminder: FocusReminder) -> some View {
+    HStack(spacing: 8) {
+      Text("Deleted “\(reminder.title)”")
+        .lineLimit(1)
+        .truncationMode(.middle)
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+      Button("Undo") {
+        withAnimation(.easeOut(duration: 0.2)) {
+          pendingDeletion = nil
+        }
+      }
+      .buttonStyle(.plain)
+      .foregroundStyle(Color.accentColor)
+      .keyboardShortcut("z", modifiers: .command)
+    }
+    .font(.system(size: 12))
+    .padding(.horizontal, 12)
+    .padding(.vertical, 8)
+    .transition(.move(edge: .bottom).combined(with: .opacity))
   }
 
   /// Adds the typed title to a list and starts working on it straight away.
