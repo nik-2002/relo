@@ -40,11 +40,29 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
 @MainActor
 final class FloatingCountdownWindowController: NSObject {
   static let contentSize = NSSize(width: 110, height: 48)
-  /// Taller variant with room for the linked reminder's title under the digits.
-  static let linkedReminderContentSize = NSSize(width: 110, height: 62)
+  static let reminderTitleFont = NSFont.systemFont(ofSize: 10.5, weight: .medium)
+  static let reminderTitlePadding: CGFloat = 10
+  /// Past this width the title wraps onto more lines instead of widening further.
+  static let maximumContentWidth: CGFloat = 260
 
-  static func contentSize(hasLinkedReminder: Bool) -> NSSize {
-    hasLinkedReminder ? linkedReminderContentSize : contentSize
+  /// Fits the whole linked title under the digits: the window widens until the
+  /// title sits on one line, then grows taller with each wrapped line.
+  static func contentSize(forReminderTitle title: String?) -> NSSize {
+    guard let title, !title.isEmpty else { return contentSize }
+    let text = NSAttributedString(string: title, attributes: [.font: reminderTitleFont])
+    let maximumTextWidth = maximumContentWidth - 2 * reminderTitlePadding
+    // A couple of points of slack so SwiftUI's own layout never wraps or
+    // truncates where AppKit's measurement said the text fits.
+    let oneLineWidth = ceil(text.size().width) + 2
+    let textWidth = min(oneLineWidth, maximumTextWidth)
+    let textHeight = ceil(text.boundingRect(
+      with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
+      options: [.usesLineFragmentOrigin, .usesFontLeading]
+    ).height) + 1
+    return NSSize(
+      width: max(contentSize.width, textWidth + 2 * reminderTitlePadding),
+      height: contentSize.height + textHeight
+    )
   }
 
   /// The window is not tied to the timer's state: once the display is enabled
@@ -134,10 +152,10 @@ final class FloatingCountdownWindowController: NSObject {
     self.model = model
     self.reminderFocus = reminderFocus
     reminderFocus.$linkedReminder
-      .map { $0 != nil }
+      .map { $0?.title }
       .removeDuplicates()
-      .sink { [weak self] hasLinkedReminder in
-        self?.resize(to: Self.contentSize(hasLinkedReminder: hasLinkedReminder))
+      .sink { [weak self] title in
+        self?.resize(to: Self.contentSize(forReminderTitle: title))
       }
       .store(in: &cancellables)
 
@@ -261,17 +279,24 @@ final class FloatingCountdownWindowController: NSObject {
     }
   }
 
-  /// Grows or shrinks the panel while keeping its top edge in place, so the
-  /// digits stay where the user put them.
+  /// Grows or shrinks the panel around its horizontal centre with the top edge
+  /// fixed, so the digits stay where the user put them, then keeps it on screen.
   private func resize(to size: NSSize) {
     guard size != currentContentSize else { return }
     currentContentSize = size
     guard let window else { return }
-    let frame = window.frame
     window.setFrame(
-      NSRect(x: frame.minX, y: frame.maxY - size.height, width: size.width, height: size.height),
+      Self.resizedFrame(window.frame, to: size, visibleFrame: window.screen?.visibleFrame),
       display: true
     )
+  }
+
+  static func resizedFrame(_ frame: NSRect, to size: NSSize, visibleFrame: NSRect?) -> NSRect {
+    var origin = NSPoint(x: frame.midX - size.width / 2, y: frame.maxY - size.height)
+    if let visibleFrame {
+      origin = constrainedOrigin(proposedOrigin: origin, contentSize: size, visibleFrame: visibleFrame)
+    }
+    return NSRect(origin: origin, size: size)
   }
 
   private func ensureWindow(model: ReloModel) -> NSPanel {

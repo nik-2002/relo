@@ -324,13 +324,49 @@ final class ReminderFocusStoreTests: XCTestCase {
   }
 
   func testFloatingWindowGrowsOnlyWhenAReminderIsLinked() {
-    XCTAssertEqual(
-      FloatingCountdownWindowController.contentSize(hasLinkedReminder: false),
-      FloatingCountdownWindowController.contentSize
+    typealias Controller = FloatingCountdownWindowController
+    XCTAssertEqual(Controller.contentSize(forReminderTitle: nil), Controller.contentSize)
+    let short = Controller.contentSize(forReminderTitle: "Read")
+    XCTAssertEqual(short.width, Controller.contentSize.width)
+    XCTAssertGreaterThan(short.height, Controller.contentSize.height)
+  }
+
+  func testFloatingWindowWidensToFitTheWholeTitleOnOneLine() {
+    typealias Controller = FloatingCountdownWindowController
+    let title = "Unidata Assessment"
+    let size = Controller.contentSize(forReminderTitle: title)
+    let textWidth = (title as NSString).size(withAttributes: [.font: Controller.reminderTitleFont]).width
+
+    XCTAssertGreaterThan(size.width, Controller.contentSize.width)
+    XCTAssertGreaterThanOrEqual(size.width - 2 * Controller.reminderTitlePadding, textWidth)
+    XCTAssertEqual(size.height, Controller.contentSize(forReminderTitle: "Read").height)
+  }
+
+  func testVeryLongTitlesWrapInsteadOfWideningPastTheCap() {
+    typealias Controller = FloatingCountdownWindowController
+    let oneLine = Controller.contentSize(forReminderTitle: "Read")
+    let long = Controller.contentSize(
+      forReminderTitle: "Finish the Unidata data science take-home assessment and write up the findings for review"
     )
-    XCTAssertGreaterThan(
-      FloatingCountdownWindowController.contentSize(hasLinkedReminder: true).height,
-      FloatingCountdownWindowController.contentSize.height
+
+    XCTAssertLessThanOrEqual(long.width, Controller.maximumContentWidth)
+    XCTAssertGreaterThan(long.height, oneLine.height)
+  }
+
+  func testResizedFloatingWindowKeepsItsCentreAndTopAndStaysOnScreen() {
+    let screen = NSRect(x: 0, y: 0, width: 1440, height: 875)
+    let frame = NSRect(x: 600, y: 700, width: 110, height: 48)
+
+    let grown = FloatingCountdownWindowController.resizedFrame(
+      frame, to: NSSize(width: 200, height: 62), visibleFrame: screen
     )
+    XCTAssertEqual(grown.midX, frame.midX)
+    XCTAssertEqual(grown.maxY, frame.maxY)
+
+    let nearEdge = NSRect(x: 1320, y: 700, width: 110, height: 48)
+    let clamped = FloatingCountdownWindowController.resizedFrame(
+      nearEdge, to: NSSize(width: 200, height: 62), visibleFrame: screen
+    )
+    XCTAssertEqual(clamped.maxX, screen.maxX)
   }
 }

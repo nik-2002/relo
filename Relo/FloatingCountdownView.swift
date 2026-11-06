@@ -30,11 +30,11 @@ struct FloatingCountdownView: View {
 
         if let linked = reminderFocus.linkedReminder {
           Text(linked.title)
-            .font(.system(size: 10.5, weight: .medium))
-            .lineLimit(1)
-            .truncationMode(.tail)
+            .font(Font(FloatingCountdownWindowController.reminderTitleFont))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
             .foregroundStyle(contentColor.opacity(0.6))
-            .padding(.horizontal, 10)
+            .padding(.horizontal, FloatingCountdownWindowController.reminderTitlePadding)
             .accessibilityLabel("Working on \(linked.title)")
         }
       }
@@ -70,7 +70,7 @@ struct FloatingCountdownView: View {
 
   private var contentSize: NSSize {
     FloatingCountdownWindowController.contentSize(
-      hasLinkedReminder: reminderFocus.linkedReminder != nil
+      forReminderTitle: reminderFocus.linkedReminder?.title
     )
   }
 
